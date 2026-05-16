@@ -373,6 +373,61 @@ router.get('/perfil', verificarToken, async (req, res) => {
     }
 });
 
+// PUT /auth/cambiar-contrasena
+// Permite al usuario autenticado actualizar su contraseña actual.
+router.put('/cambiar-contrasena', verificarToken, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Contraseña actual y nueva son obligatorias' });
+    }
+
+    if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
+
+    try {
+        const resultado = await pool.query(
+            'SELECT pwhash_usu FROM usuarios WHERE id_usu = $1',
+            [req.usuario.id]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const usuario = resultado.rows[0];
+        const coincide = await bcrypt.compare(currentPassword, usuario.pwhash_usu);
+        if (!coincide) {
+            return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+        }
+
+        const hash = await bcrypt.hash(newPassword, 10);
+        await pool.query(
+            'UPDATE usuarios SET pwhash_usu = $1 WHERE id_usu = $2',
+            [hash, req.usuario.id]
+        );
+
+        res.json({ mensaje: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// DELETE /auth/cuenta
+// Elimina la cuenta del usuario autenticado y limpia sus datos relacionados.
+router.delete('/cuenta', verificarToken, async (req, res) => {
+    try {
+        await pool.query('DELETE FROM usuarios_juegos WHERE id_usu = $1', [req.usuario.id]);
+        await pool.query('DELETE FROM perfiles_steam WHERE id_usu = $1', [req.usuario.id]);
+        await pool.query('DELETE FROM usuarios WHERE id_usu = $1', [req.usuario.id]);
+
+        res.json({ mensaje: 'Cuenta eliminada correctamente' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = { router, verificarToken };
 
 /**

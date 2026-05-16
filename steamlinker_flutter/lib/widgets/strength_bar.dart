@@ -38,7 +38,7 @@ class StrengthBar extends StatelessWidget {
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: pct),
             duration: const Duration(milliseconds: 350),
-            builder: (_, v, __) => LinearProgressIndicator(
+            builder: (_, v, _) => LinearProgressIndicator(
               value: v,
               minHeight: 3,
               backgroundColor: SteamColors.border,

@@ -90,7 +90,7 @@ class UsuarioCard extends StatelessWidget {
             ),
 
             // Accion opcional
-            if (accion != null) accion!,
+            ?accion,
           ],
         ),
       ),

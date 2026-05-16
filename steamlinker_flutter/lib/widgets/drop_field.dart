@@ -5,12 +5,14 @@ class DropField extends StatefulWidget {
   final String label;
   final String value;
   final List<String> items;
+  final ValueChanged<String>? onChanged;
 
   const DropField({
     super.key,
     required this.label,
     required this.value,
     required this.items,
+    this.onChanged,
   });
 
   @override
@@ -42,7 +44,7 @@ class _DropFieldState extends State<DropField> {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _selected,
+          initialValue: _selected,
           isExpanded: true,
           dropdownColor: SteamColors.bgPanel,
           icon: const Icon(Icons.expand_more, color: SteamColors.muted, size: 18),
@@ -72,7 +74,11 @@ class _DropFieldState extends State<DropField> {
                     ),
                   ))
               .toList(),
-          onChanged: (v) => setState(() => _selected = v!),
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => _selected = v);
+            widget.onChanged?.call(v);
+          },
         ),
         const SizedBox(height: 12),
       ],

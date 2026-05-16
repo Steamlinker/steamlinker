@@ -22,6 +22,41 @@ function gameCapsuleImg(appid) {
   return `${STEAM_CDN}/${appid}/capsule_231x87.jpg`;
 }
 
+/**
+ * Extrae el identificador de Steam de una URL o nombre de usuario.
+ */
+function extractSteamIdentifier(input) {
+  const value = input.trim();
+  const profileMatch = value.match(/steamcommunity\.com\/(?:id|profiles)\/([^\/?#]+)/i);
+  if (profileMatch) {
+    return profileMatch[1];
+  }
+  return value;
+}
+
+/**
+ * Resuelve un vanity URL o retorna directamente un steamid64 válido.
+ */
+async function resolveSteamId(input) {
+  const identifier = extractSteamIdentifier(input);
+  if (/^\d{17}$/.test(identifier)) {
+    return identifier;
+  }
+
+  const { data } = await axios.get(`${STEAM_API}/ISteamUser/ResolveVanityURL/v1/`, {
+    params: {
+      key: API_KEY,
+      vanityurl: identifier,
+    },
+  });
+
+  if (data.response.success !== 1) {
+    throw new Error('No se pudo resolver el nombre de usuario de Steam');
+  }
+
+  return data.response.steamid;
+}
+
 // ── 1. PERFIL DE USUARIO ────────────────────────────────────────
 
 /**
@@ -58,6 +93,11 @@ async function getUserProfile(steamid) {
  * @returns {Array} lista de juegos con nombre, horas e imágenes
  */
 async function getOwnedGames(steamid) {
+  const profile = await getUserProfile(steamid);
+  if (!profile.isPublic) {
+    throw new Error('El perfil de Steam es privado');
+  }
+
   const { data } = await axios.get(
     `${STEAM_API}/IPlayerService/GetOwnedGames/v1/`,
     {
@@ -141,6 +181,7 @@ async function getPlayerAchievements(steamid, appid) {
 }
 
 module.exports = {
+  resolveSteamId,
   getUserProfile,
   getOwnedGames,
   getCommonGames,

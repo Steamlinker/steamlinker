@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../theme/colors.dart';
 import '../../../models/notification_model.dart';
 import '../screens/home_screen.dart';
 import '../../notifications/screens/notifications_screen.dart';
-import '../../account/screens/account_settings_screen.dart';
+import '../../perfil/screens/perfil_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -21,7 +21,7 @@ class _MainShellState extends State<MainShell> {
   final List<Widget> _pages = const [
     HomeScreen(),
     NotificationsScreen(),
-    AccountSettingsScreen(),
+    PerfilScreen(),
   ];
 
   @override
@@ -81,7 +81,7 @@ class _BottomNavBar extends StatelessWidget {
             _NavItem(
               icon: Icons.manage_accounts_outlined,
               activeIcon: Icons.manage_accounts_rounded,
-              label: 'Mi Cuenta',
+              label: 'Perfil',
               index: 2,
               currentIndex: currentIndex,
               onTap: () => onTap(2),
@@ -124,7 +124,6 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ── Ícono con badge ─────────────────────────────────────
             Stack(clipBehavior: Clip.none, children: [
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
@@ -157,22 +156,17 @@ class _NavItem extends StatelessWidget {
                 ),
             ]),
             const SizedBox(height: 4),
-
-            // ── Label ───────────────────────────────────────────────
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 180),
               style: TextStyle(
                 color: _active ? SteamColors.blue : SteamColors.muted,
                 fontSize: 10,
-                fontWeight:
-                    _active ? FontWeight.w700 : FontWeight.w400,
+                fontWeight: _active ? FontWeight.w700 : FontWeight.w400,
                 letterSpacing: 0.4,
               ),
               child: Text(label),
             ),
             const SizedBox(height: 2),
-
-            // ── Indicador activo ─────────────────────────────────────
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               height: 2,

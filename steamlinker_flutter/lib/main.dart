@@ -8,6 +8,7 @@ import 'core/network/api_client.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/home/screens/main_shell.dart';
+import 'features/perfil/providers/perfil_provider.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -24,6 +25,7 @@ class SteamlinkerApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..verificarSesion()),
+        ChangeNotifierProvider(create: (_) => PerfilProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {

@@ -110,4 +110,53 @@ class AuthProvider extends ChangeNotifier {
     _autenticado = false;
     notifyListeners();
   }
+
+  // Cambiar la contraseña del usuario autenticado
+  Future<bool> cambiarContrasena({
+    required String contrasenaActual,
+    required String nuevaContrasena,
+  }) async {
+    _cargando = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await ApiClient.dio.put('/auth/cambiar-contrasena', data: {
+        'currentPassword': contrasenaActual,
+        'newPassword': nuevaContrasena,
+      });
+      _cargando = false;
+      notifyListeners();
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? e.message ?? 'Error al cambiar contrasena';
+      _cargando = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Eliminar la cuenta del usuario autenticado
+  Future<bool> eliminarCuenta() async {
+    _cargando = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await ApiClient.dio.delete('/auth/cuenta');
+      await logout();
+      _cargando = false;
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? e.message ?? 'Error al eliminar cuenta';
+      _cargando = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void actualizarUsuario(Map<String, dynamic> datos) {
+    _usuario = {...?_usuario, ...datos};
+    notifyListeners();
+  }
 }

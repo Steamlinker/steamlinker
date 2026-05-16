@@ -5,19 +5,19 @@ import '../theme/colors.dart';
 class SteamButtonPrimary extends StatelessWidget {
   final String label;
   final IconData icon;
-  final void Function(BuildContext context) onTap;
+  final void Function(BuildContext context)? onTap;
 
   const SteamButtonPrimary({
     super.key,
     required this.label,
     required this.icon,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton.icon(
-      onPressed: () => onTap(context),
+      onPressed: onTap == null ? null : () => onTap!(context),
       icon: Icon(icon, size: 14),
       label: Text(label.toUpperCase()),
       style: ElevatedButton.styleFrom(
@@ -39,18 +39,14 @@ class SteamButtonPrimary extends StatelessWidget {
 // ── Botón outline (azul con borde) ────────────────────────────────────────
 class SteamButtonOutline extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
-  const SteamButtonOutline({
-    super.key,
-    required this.label,
-    required this.onTap,
-  });
+  const SteamButtonOutline({super.key, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return OutlinedButton(
-      onPressed: onTap,
+      onPressed: onTap == null ? null : onTap,
       style: OutlinedButton.styleFrom(
         foregroundColor: SteamColors.blue,
         side: const BorderSide(color: SteamColors.blue),
@@ -71,19 +67,19 @@ class SteamButtonOutline extends StatelessWidget {
 class SteamButtonDanger extends StatelessWidget {
   final String label;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const SteamButtonDanger({
     super.key,
     required this.label,
     required this.icon,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
-      onPressed: onTap,
+      onPressed: onTap == null ? null : onTap,
       icon: Icon(icon, size: 14),
       label: Text(label.toUpperCase()),
       style: OutlinedButton.styleFrom(
