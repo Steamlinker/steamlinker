@@ -16,6 +16,8 @@ cp .env.example .env
 npm run dev
 ```
 
+> Nota: el archivo `.env` no debe subirse a GitHub. Usa `.env.example` para compartir los nombres de las variables, pero guarda los valores reales en privado.
+
 ---
 
 ## Estructura del proyecto

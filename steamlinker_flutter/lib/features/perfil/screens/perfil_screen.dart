@@ -8,6 +8,7 @@ import '../../../widgets/steam_toast.dart';
 import '../../../widgets/steam_buttons.dart';
 import '../../account/screens/account_settings_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../busqueda/screens/busqueda_screen.dart';
 import '../providers/perfil_provider.dart';
 
 class PerfilScreen extends StatefulWidget {
@@ -19,14 +20,11 @@ class PerfilScreen extends StatefulWidget {
 
 class _PerfilScreenState extends State<PerfilScreen> {
   bool _inicializado = false;
-  final TextEditingController _searchController = TextEditingController();
+  late PerfilProvider _perfilProv;
   final TextEditingController _steamController = TextEditingController();
-  bool _buscandoJuegos = false;
   bool _vinculandoSteam = false;
   bool _importandoSteam = false;
   bool _desvinculandoSteam = false;
-  List<dynamic> _resultados = [];
-  String? _errorBusqueda;
   String? _steamError;
 
   @override
@@ -34,79 +32,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
     super.didChangeDependencies();
     if (!_inicializado) {
       _inicializado = true;
+      _perfilProv = context.read<PerfilProvider>();
       _cargarPerfil();
     }
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
     _steamController.dispose();
     super.dispose();
   }
 
   Future<void> _cargarPerfil() async {
     final auth = context.read<AuthProvider>();
-    final perfilProv = context.read<PerfilProvider>();
+    final perfilProv = _perfilProv;
     final usuario = auth.usuario;
     if (usuario == null) return;
     await perfilProv.cargarPerfil(usuario['id']);
     if (!mounted) return;
-  }
-
-  Future<void> _buscarJuegos(String query) async {
-    final perfilProv = context.read<PerfilProvider>();
-    if (query.trim().isEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _resultados = [];
-        _errorBusqueda = null;
-      });
-      return;
-    }
-
-    setState(() {
-      _buscandoJuegos = true;
-      _errorBusqueda = null;
-    });
-
-    final resultados = await perfilProv.buscarJuegos(query.trim());
-    if (!mounted) return;
-    setState(() {
-      _resultados = resultados;
-      _buscandoJuegos = false;
-      if (resultados.isEmpty) {
-        _errorBusqueda = 'No se encontraron juegos para "$query"';
-      }
-    });
-  }
-
-  Future<void> _agregarJuego(Map<String, dynamic> juego) async {
-    final perfilProv = context.read<PerfilProvider>();
-    final exito = await perfilProv.agregarJuego({
-      'appid': juego['appid'],
-      'nombre': juego['nombre'],
-      'headerimg': juego['headerimg'],
-      'capsuleimg': juego['capsuleimg'],
-      'horas': 0,
-      'favorito': false,
-    });
-
-    if (exito) {
-      if (!mounted) return;
-      showSteamToast(context, 'Juego agregado al perfil', SteamColors.green);
-      setState(() {
-        _resultados = [];
-        _searchController.clear();
-      });
-    } else {
-      if (!mounted) return;
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible agregar el juego',
-        Colors.red,
-      );
-    }
   }
 
   Future<void> _vincularSteamCuenta() async {
@@ -121,29 +64,29 @@ class _PerfilScreenState extends State<PerfilScreen> {
       _steamError = null;
     });
 
-    final perfilProv = context.read<PerfilProvider>();
-    final exito = await perfilProv.vincularSteam(steamId);
+    final exito = await _perfilProv.vincularSteam(steamId);
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _vinculandoSteam = false;
     });
 
     if (exito) {
-      showSteamToast(
-        context,
+      showSteamToastWithMessenger(
+        messenger,
         'Cuenta Steam vinculada correctamente',
         SteamColors.green,
       );
       _steamController.clear();
     } else {
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible vincular Steam',
+      showSteamToastWithMessenger(
+        messenger,
+        _perfilProv.error ?? 'No fue posible vincular Steam',
         Colors.red,
       );
       setState(() {
-        _steamError = perfilProv.error;
+        _steamError = _perfilProv.error;
       });
     }
   }
@@ -154,24 +97,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
       _steamError = null;
     });
 
-    final perfilProv = context.read<PerfilProvider>();
-    final mensaje = await perfilProv.importarJuegosSteam();
+    final mensaje = await _perfilProv.importarJuegosSteam();
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _importandoSteam = false;
     });
 
     if (mensaje != null) {
-      showSteamToast(context, mensaje, SteamColors.green);
+      showSteamToastWithMessenger(messenger, mensaje, SteamColors.green);
     } else {
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible importar la biblioteca',
+      showSteamToastWithMessenger(
+        messenger,
+        _perfilProv.error ?? 'No fue posible importar la biblioteca',
         Colors.red,
       );
       setState(() {
-        _steamError = perfilProv.error;
+        _steamError = _perfilProv.error;
       });
     }
   }
@@ -182,35 +125,34 @@ class _PerfilScreenState extends State<PerfilScreen> {
       _steamError = null;
     });
 
-    final perfilProv = context.read<PerfilProvider>();
-    final exito = await perfilProv.desvincularSteam();
+    final exito = await _perfilProv.desvincularSteam();
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _desvinculandoSteam = false;
     });
 
     if (exito) {
-      showSteamToast(
-        context,
+      showSteamToastWithMessenger(
+        messenger,
         'Cuenta Steam desvinculada correctamente',
         SteamColors.green,
       );
     } else {
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible desvincular Steam',
+      showSteamToastWithMessenger(
+        messenger,
+        _perfilProv.error ?? 'No fue posible desvincular Steam',
         Colors.red,
       );
       setState(() {
-        _steamError = perfilProv.error;
+        _steamError = _perfilProv.error;
       });
     }
   }
 
   Future<void> _toggleFavorito(Map<String, dynamic> juego) async {
-    final perfilProv = context.read<PerfilProvider>();
-    final exito = await perfilProv.actualizarJuego(
+    final exito = await _perfilProv.actualizarJuego(
       appid: juego['appid'],
       nombre: juego['nombre'],
       headerimg: juego['headerimg'] ?? '',
@@ -220,18 +162,19 @@ class _PerfilScreenState extends State<PerfilScreen> {
     );
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     if (exito) {
-      showSteamToast(
-        context,
+      showSteamToastWithMessenger(
+        messenger,
         juego['favorito'] == true
             ? 'Juego marcado como no favorito'
             : 'Juego marcado como favorito',
         SteamColors.green,
       );
     } else {
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible actualizar el juego',
+      showSteamToastWithMessenger(
+        messenger,
+        _perfilProv.error ?? 'No fue posible actualizar el juego',
         Colors.red,
       );
     }
@@ -286,8 +229,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     if (nuevoHoras == null) return;
 
-    final perfilProv = context.read<PerfilProvider>();
-    final exito = await perfilProv.actualizarJuego(
+    final exito = await _perfilProv.actualizarJuego(
       appid: juego['appid'],
       nombre: juego['nombre'],
       headerimg: juego['headerimg'] ?? '',
@@ -297,21 +239,16 @@ class _PerfilScreenState extends State<PerfilScreen> {
     );
 
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     if (exito) {
-      showSteamToast(context, 'Horas actualizadas', SteamColors.green);
+      showSteamToastWithMessenger(messenger, 'Horas actualizadas', SteamColors.green);
     } else {
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible actualizar horas',
+      showSteamToastWithMessenger(
+        messenger,
+        _perfilProv.error ?? 'No fue posible actualizar horas',
         Colors.red,
       );
     }
-  }
-
-  bool _esJuegoAgregado(dynamic appid) {
-    final perfilProv = context.read<PerfilProvider>();
-    final targetId = appid.toString();
-    return perfilProv.juegos.any((j) => j['appid'].toString() == targetId);
   }
 
   Future<bool> _confirmarEliminarJuego(String nombre) async {
@@ -345,15 +282,15 @@ class _PerfilScreenState extends State<PerfilScreen> {
     final confirmado = await _confirmarEliminarJuego(nombre);
     if (!confirmado) return;
 
-    final perfilProv = context.read<PerfilProvider>();
-    final exito = await perfilProv.eliminarJuego(appid);
+    final exito = await _perfilProv.eliminarJuego(appid);
     if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     if (exito) {
-      showSteamToast(context, 'Juego eliminado del perfil', SteamColors.green);
+      showSteamToastWithMessenger(messenger, 'Juego eliminado del perfil', SteamColors.green);
     } else {
-      showSteamToast(
-        context,
-        perfilProv.error ?? 'No fue posible eliminar el juego',
+      showSteamToastWithMessenger(
+        messenger,
+        _perfilProv.error ?? 'No fue posible eliminar el juego',
         Colors.red,
       );
     }
@@ -677,124 +614,26 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        TextField(
-                          controller: _searchController,
-                          style: const TextStyle(color: SteamColors.light),
-                          onChanged: (_) => setState(() {}),
-                          decoration: InputDecoration(
-                            labelText: 'Nombre del juego',
-                            hintText: 'Buscar en Steam',
-                            filled: true,
-                            fillColor: SteamColors.bgInput,
-                            suffixIcon: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.search,
-                                    color: SteamColors.muted,
-                                  ),
-                                  onPressed: () =>
-                                      _buscarJuegos(_searchController.text),
-                                ),
-                                if (_searchController.text.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.clear,
-                                      color: SteamColors.muted,
-                                    ),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _resultados = [];
-                                        _errorBusqueda = null;
-                                      });
-                                    },
-                                  ),
-                              ],
-                            ),
+                        const Text(
+                          'Usa la búsqueda para encontrar juegos en Steam y agregarlos rápido a tu biblioteca.',
+                          style: TextStyle(
+                            color: SteamColors.textSec,
+                            fontSize: 12,
                           ),
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: _buscarJuegos,
                         ),
                         const SizedBox(height: 12),
-                        if (_buscandoJuegos)
-                          const Center(
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation(
-                                SteamColors.blue,
+                        SteamButtonPrimary(
+                          label: 'Ir a búsqueda',
+                          icon: Icons.search,
+                          onTap: (ctx) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const BusquedaScreen(),
                               ),
-                            ),
-                          )
-                        else if (_errorBusqueda != null)
-                          Text(
-                            _errorBusqueda!,
-                            style: const TextStyle(color: SteamColors.textSec),
-                          )
-                        else if (_resultados.isEmpty)
-                          const Text(
-                            'Escribe el nombre de un juego y presiona Enter para agregarlo a tu biblioteca.',
-                            style: TextStyle(
-                              color: SteamColors.textSec,
-                              fontSize: 12,
-                            ),
-                          )
-                        else
-                          Column(
-                            children: _resultados.map((juego) {
-                              final yaAgregado = _esJuegoAgregado(
-                                juego['appid'],
-                              );
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    image:
-                                        juego['headerimg'] != null &&
-                                            juego['headerimg']
-                                                .toString()
-                                                .isNotEmpty
-                                        ? DecorationImage(
-                                            image: NetworkImage(
-                                              juego['headerimg'],
-                                            ),
-                                            fit: BoxFit.cover,
-                                          )
-                                        : null,
-                                    color: SteamColors.bgPanel,
-                                  ),
-                                ),
-                                title: Text(
-                                  juego['nombre'] ?? 'Juego',
-                                  style: const TextStyle(
-                                    color: SteamColors.light,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  yaAgregado
-                                      ? 'Ya agregado a tu biblioteca'
-                                      : 'AppID: ${juego['appid']}',
-                                  style: const TextStyle(
-                                    color: SteamColors.textSec,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                trailing: yaAgregado
-                                    ? SteamButtonOutline(
-                                        label: 'Agregado',
-                                        onTap: () {},
-                                      )
-                                    : SteamButtonPrimary(
-                                        label: 'Agregar',
-                                        icon: Icons.add,
-                                        onTap: (ctx) => _agregarJuego(juego),
-                                      ),
-                              );
-                            }).toList(),
-                          ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -816,8 +655,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                   .where((j) => j['favorito'] == true)
                                   .map((juego) {
                                     return _buildGameListTile(juego);
-                                  })
-                                  .toList(),
+                                  }),
                               // Divisor si hay favoritos y no favoritos
                               if (perfilProv.juegos.any(
                                     (j) => j['favorito'] == true,
@@ -830,7 +668,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                     vertical: 8,
                                   ),
                                   child: Divider(
-                                    color: SteamColors.border.withOpacity(0.3),
+                                    color: SteamColors.border.withAlpha(77),
                                     height: 1,
                                   ),
                                 ),
@@ -839,8 +677,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                   .where((j) => j['favorito'] != true)
                                   .map((juego) {
                                     return _buildGameListTile(juego);
-                                  })
-                                  .toList(),
+                                  }),
                             ],
                     ),
                   ),

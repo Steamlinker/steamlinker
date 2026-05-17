@@ -3,6 +3,11 @@ import 'package:provider/provider.dart';
 import '../../../theme/colors.dart';
 import '../../../widgets/steam_app_bar.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../busqueda/screens/busqueda_screen.dart';
+import '../../chat/screens/chat_screen.dart';
+import '../../matches/screens/matches_screen.dart';
+import '../../perfil/screens/perfil_screen.dart';
+import '../../publicaciones/screens/publicaciones_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,18 +17,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Cargar datos del usuario cuando la pantalla se inicializa
-    Future.microtask(() {
-      final auth = context.read<AuthProvider>();
-      if (auth.usuario != null) {
-        // Los datos ya están disponibles del login
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 56,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(8),
-                              color: SteamColors.blue.withOpacity(0.2),
+                              color: SteamColors.blue.withAlpha(51),
                               border: Border.all(color: SteamColors.blue, width: 2),
                             ),
                             child: Center(
@@ -179,6 +172,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: 'Descubre Gamers',
                   description: 'Encuentra compañeros de juego',
                   color: SteamColors.purple,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MatchesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _QuickAccessCard(
+                  icon: Icons.search_outlined,
+                  title: 'Buscar juegos',
+                  description: 'Explora la tienda Steam',
+                  color: SteamColors.teal,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const BusquedaScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 _QuickAccessCard(
@@ -186,6 +200,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: 'Mis Juegos',
                   description: 'Administra tu biblioteca',
                   color: SteamColors.teal,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PerfilScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 _QuickAccessCard(
@@ -193,6 +214,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: 'Mensajes',
                   description: 'Comunícate con otros usuarios',
                   color: SteamColors.blue,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ChatScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _QuickAccessCard(
+                  icon: Icons.campaign_outlined,
+                  title: 'Publicaciones',
+                  description: 'Explora avisos y ofertas de juego',
+                  color: SteamColors.orange,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const PublicacionesScreen(),
+                      ),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 32),
@@ -255,12 +297,14 @@ class _QuickAccessCard extends StatelessWidget {
   final String title;
   final String description;
   final Color color;
+  final VoidCallback? onTap;
 
   const _QuickAccessCard({
     required this.icon,
     required this.title,
     required this.description,
     required this.color,
+    this.onTap,
   });
 
   @override
@@ -274,7 +318,7 @@ class _QuickAccessCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: onTap,
           borderRadius: BorderRadius.circular(6),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -284,7 +328,7 @@ class _QuickAccessCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
+                    color: color.withAlpha(38),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: color, width: 1.5),
                   ),
