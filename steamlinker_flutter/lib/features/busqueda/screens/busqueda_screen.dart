@@ -87,7 +87,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'Buscar juegos'),
+      appBar: const SteamAppBar(title: 'BUSCAR JUEGOS'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: SteamCard(

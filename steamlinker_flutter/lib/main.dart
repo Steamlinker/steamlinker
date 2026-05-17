@@ -7,9 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'core/network/api_client.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/amistad/providers/amistad_provider.dart';
+import 'features/calificaciones/providers/calificaciones_provider.dart';
 import 'features/chat/providers/chat_provider.dart';
 import 'features/home/screens/main_shell.dart';
 import 'features/matches/providers/matches_provider.dart';
+import 'features/notifications/providers/notificaciones_provider.dart';
 import 'features/perfil/providers/perfil_provider.dart';
 import 'features/publicaciones/providers/publicaciones_provider.dart';
 import 'theme/app_theme.dart';
@@ -32,6 +35,9 @@ class SteamlinkerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PublicacionesProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => MatchesProvider()),
+        ChangeNotifierProvider(create: (_) => AmistadProvider()),
+        ChangeNotifierProvider(create: (_) => CalificacionesProvider()),
+        ChangeNotifierProvider(create: (_) => NotificacionesProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {

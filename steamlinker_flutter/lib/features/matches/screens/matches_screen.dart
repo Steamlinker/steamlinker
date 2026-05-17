@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../theme/colors.dart';
+import '../../../widgets/calificar_dialog.dart';
+import '../../../widgets/steam_app_bar.dart';
+import '../../../widgets/steam_toast.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../calificaciones/providers/calificaciones_provider.dart';
+import '../../notifications/providers/notificaciones_provider.dart';
+import '../../usuarios/screens/usuario_detalle_screen.dart';
 import '../providers/matches_provider.dart';
 
 class MatchesScreen extends StatefulWidget {
@@ -19,22 +26,73 @@ class _MatchesScreenState extends State<MatchesScreen> {
     super.didChangeDependencies();
     if (!_inicializado) {
       _inicializado = true;
-      final prov = context.read<MatchesProvider>();
-      prov.cargarRecibidos();
-      prov.cargarEnviados();
+      context.read<MatchesProvider>().cargarTodo();
     }
+  }
+
+  int? _otroUsuarioId(Map<String, dynamic> item, int miId) {
+    if (item['id_solicitante'] == miId) return item['id_receptor'] as int?;
+    return item['id_solicitante'] as int?;
+  }
+
+  String _nombreOtro(Map<String, dynamic> item, int miId, {required bool recibido}) {
+    if (recibido) return item['solicitante_username'] ?? 'Usuario';
+    return item['receptor_username'] ?? 'Usuario';
+  }
+
+  Future<void> _calificar(Map<String, dynamic> item, int miId) async {
+    final idCalificado = _otroUsuarioId(item, miId);
+    if (idCalificado == null) return;
+    final nombre = _nombreOtro(item, miId, recibido: _tabActual == 0);
+
+    final resultado = await mostrarCalificarDialog(
+      context,
+      nombreUsuario: nombre,
+    );
+    if (resultado == null || !mounted) return;
+
+    final exito = await context.read<CalificacionesProvider>().crear(
+      idMatch: item['id_match'] as int,
+      idCalificado: idCalificado,
+      estrellas: resultado.estrellas,
+      confiable: resultado.confiable,
+      comentario: resultado.comentario,
+    );
+
+    if (!mounted) return;
+    if (exito) {
+      showSteamToast(context, 'Calificación enviada', SteamColors.green);
+    } else {
+      showSteamToast(
+        context,
+        context.read<CalificacionesProvider>().error ?? 'Error al calificar',
+        Colors.red,
+      );
+    }
+  }
+
+  void _abrirPerfil(int userId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => UsuarioDetalleScreen(userId: userId)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final matchesProv = context.watch<MatchesProvider>();
+    final miId = context.watch<AuthProvider>().usuario?['id'];
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: SteamColors.bgPanel,
-        title: const Text('Matches'),
+      appBar: SteamAppBar(
+        title: 'SOLICITUDES',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: SteamColors.blue),
+            tooltip: 'Actualizar',
+            onPressed: () => matchesProv.cargarTodo(),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -54,14 +112,6 @@ class _MatchesScreenState extends State<MatchesScreen> {
                     selected: _tabActual == 1,
                     onTap: () => setState(() => _tabActual = 1),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: SteamColors.blue),
-                    onPressed: () {
-                      matchesProv.cargarRecibidos();
-                      matchesProv.cargarEnviados();
-                    },
-                  ),
                 ],
               ),
             ),
@@ -73,8 +123,8 @@ class _MatchesScreenState extends State<MatchesScreen> {
                       ),
                     )
                   : _tabActual == 0
-                      ? _buildRecibidos(matchesProv)
-                      : _buildEnviados(matchesProv),
+                      ? _buildLista(matchesProv.recibidos, matchesProv, miId, recibido: true)
+                      : _buildLista(matchesProv.enviados, matchesProv, miId, recibido: false),
             ),
           ],
         ),
@@ -82,66 +132,68 @@ class _MatchesScreenState extends State<MatchesScreen> {
     );
   }
 
-  Widget _buildRecibidos(MatchesProvider prov) {
-    if (prov.recibidos.isEmpty) {
-      return const Center(
+  Widget _buildLista(
+    List<dynamic> items,
+    MatchesProvider prov,
+    int? miId, {
+    required bool recibido,
+  }) {
+    if (items.isEmpty) {
+      return Center(
         child: Text(
-          'No tienes solicitudes recibidas.',
-          style: TextStyle(color: SteamColors.textSec),
+          recibido
+              ? 'No tienes solicitudes recibidas.'
+              : 'No tienes solicitudes enviadas.',
+          style: const TextStyle(color: SteamColors.textSec),
         ),
       );
     }
 
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: prov.recibidos.length,
+      itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final item = prov.recibidos[index];
-        return _MatchCard(
-          title: item['solicitante_username'] ?? 'Usuario',
-          subtitle:
-              'País: ${item['solicitante_pais'] ?? 'N/A'} • Repu: ${item['solicitante_reputacion'] ?? 0}',
-          onAccept: () async {
-            await prov.responder(item['id_match'], 'Aceptada');
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Solicitud aceptada')),
-            );
-          },
-          onReject: () async {
-            await prov.responder(item['id_match'], 'Rechazada');
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Solicitud rechazada')),
-            );
-          },
-        );
-      },
-    );
-  }
+        final item = Map<String, dynamic>.from(items[index] as Map);
+        final estado = item['estado_match'] ?? 'Pendiente';
+        final otroId = miId != null ? _otroUsuarioId(item, miId) : null;
+        final nombre = miId != null
+            ? _nombreOtro(item, miId, recibido: recibido)
+            : 'Usuario';
+        final pais = recibido
+            ? item['solicitante_pais']
+            : item['receptor_pais'];
+        final repu = recibido
+            ? item['solicitante_reputacion']
+            : item['receptor_reputacion'];
 
-  Widget _buildEnviados(MatchesProvider prov) {
-    if (prov.enviados.isEmpty) {
-      return const Center(
-        child: Text(
-          'No tienes solicitudes enviadas.',
-          style: TextStyle(color: SteamColors.textSec),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: prov.enviados.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final item = prov.enviados[index];
         return _MatchCard(
-          title: item['receptor_username'] ?? 'Usuario',
-          subtitle:
-              'País: ${item['receptor_pais'] ?? 'N/A'} • Repu: ${item['receptor_reputacion'] ?? 0}',
-          readOnly: true,
+          title: nombre,
+          subtitle: 'País: ${pais ?? 'N/A'} • Repu: ${repu ?? 0}',
+          estado: estado,
+          onTap: otroId != null ? () => _abrirPerfil(otroId) : null,
+          onAccept: estado == 'Pendiente' && recibido
+              ? () async {
+                  await prov.responder(item['id_match'], 'Aceptada');
+                  if (!mounted) return;
+                  context.read<NotificacionesProvider>().cargarContador();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Solicitud aceptada — chat creado')),
+                  );
+                }
+              : null,
+          onReject: estado == 'Pendiente' && recibido
+              ? () async {
+                  await prov.responder(item['id_match'], 'Rechazada');
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Solicitud rechazada')),
+                  );
+                }
+              : null,
+          onCalificar: estado == 'Aceptada' && miId != null
+              ? () => _calificar(item, miId)
+              : null,
         );
       },
     );
@@ -157,20 +209,23 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? SteamColors.blue : SteamColors.bgPanel,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? SteamColors.blue : SteamColors.border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : SteamColors.light,
-            fontWeight: FontWeight.w700,
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? SteamColors.blue : SteamColors.bgPanel,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? SteamColors.blue : SteamColors.border),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? Colors.white : SteamColors.light,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -181,72 +236,127 @@ class _TabButton extends StatelessWidget {
 class _MatchCard extends StatelessWidget {
   final String title;
   final String subtitle;
+  final String estado;
+  final VoidCallback? onTap;
   final VoidCallback? onAccept;
   final VoidCallback? onReject;
-  final bool readOnly;
+  final VoidCallback? onCalificar;
 
   const _MatchCard({
     required this.title,
     required this.subtitle,
+    required this.estado,
+    this.onTap,
     this.onAccept,
     this.onReject,
-    this.readOnly = false,
+    this.onCalificar,
   });
+
+  Color get _estadoColor {
+    switch (estado) {
+      case 'Aceptada':
+        return SteamColors.green;
+      case 'Rechazada':
+        return SteamColors.red;
+      default:
+        return SteamColors.orange;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SteamColors.bgPanel,
+    return Material(
+      color: SteamColors.bgPanel,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SteamColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: SteamColors.light,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SteamColors.border),
           ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(color: SteamColors.textSec, fontSize: 13),
-          ),
-          if (!readOnly) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: SteamColors.green,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: SteamColors.light,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    onPressed: onAccept,
-                    child: const Text('Aceptar'),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: SteamColors.red),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _estadoColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    onPressed: onReject,
-                    child: const Text('Rechazar', style: TextStyle(color: SteamColors.red)),
+                    child: Text(
+                      estado,
+                      style: TextStyle(
+                        color: _estadoColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(subtitle, style: const TextStyle(color: SteamColors.textSec, fontSize: 13)),
+              if (onAccept != null || onReject != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SteamColors.green,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: onAccept,
+                        child: const Text('Aceptar'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: SteamColors.red),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: onReject,
+                        child: const Text('Rechazar', style: TextStyle(color: SteamColors.red)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (onCalificar != null) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SteamColors.blue,
+                      side: const BorderSide(color: SteamColors.blue),
+                    ),
+                    onPressed: onCalificar,
+                    icon: const Icon(Icons.star_outline, size: 18),
+                    label: const Text('Calificar'),
                   ),
                 ),
               ],
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

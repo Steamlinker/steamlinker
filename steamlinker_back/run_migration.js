@@ -1,19 +1,23 @@
-// Ejecutar migraciones SQL
+// Ejecutar migraciones SQL en db_migrations/
 const pool = require('./src/db');
 const fs = require('fs');
 const path = require('path');
 
 async function runMigrations() {
+  const dir = path.join(__dirname, 'db_migrations');
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
   try {
     console.log('Ejecutando migraciones...');
-
-    // Leer el archivo de migración
-    const migrationFile = path.join(__dirname, 'db_migrations', '002_add_privacy_settings.sql');
-    const sql = fs.readFileSync(migrationFile, 'utf8');
-
-    // Ejecutar la migración
-    await pool.query(sql);
-    console.log('✓ Migración ejecutada exitosamente');
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+      await pool.query(sql);
+      console.log(`✓ ${file}`);
+    }
+    console.log('Migraciones completadas.');
     process.exit(0);
   } catch (err) {
     console.error('✗ Error en migración:', err.message);

@@ -11,23 +11,28 @@ class PerfilProvider extends ChangeNotifier {
   Map<String, dynamic>? _perfil;
   List<dynamic> _juegos = [];
   Map<String, dynamic>? _privacidad;
+  bool _descubrirCargando = false;
+  List<dynamic> _usuariosDescubrir = [];
 
   bool get cargando => _cargando;
+  bool get descubrirCargando => _descubrirCargando;
+  List<dynamic> get usuariosDescubrir => _usuariosDescubrir;
   String? get error => _error;
   Map<String, dynamic>? get perfil => _perfil;
   List<dynamic> get juegos => _juegos;
   Map<String, dynamic>? get privacidad => _privacidad;
 
-  Map<String, dynamic> _mapPerfil(Map<String, dynamic> raw) {
-    // Mapear privacidad si viene en la respuesta
-    _privacidad = {
-      'perfil_publico': raw['perfil_publico'] ?? true,
-      'mostrar_biblioteca': raw['mostrar_biblioteca'] ?? true,
-      'notificaciones_amigos': raw['notificaciones_amigos'] ?? true,
-      'dos_factor': raw['dos_factor'] ?? false,
-      'correos_promocionales': raw['correos_promocionales'] ?? true,
-    };
-    
+  Map<String, dynamic> _mapPerfil(Map<String, dynamic> raw, {bool actualizarPrivacidad = true}) {
+    if (actualizarPrivacidad) {
+      _privacidad = {
+        'perfil_publico': raw['perfil_publico'] ?? true,
+        'mostrar_biblioteca': raw['mostrar_biblioteca'] ?? true,
+        'notificaciones_amigos': raw['notificaciones_amigos'] ?? true,
+        'dos_factor': raw['dos_factor'] ?? false,
+        'correos_promocionales': raw['correos_promocionales'] ?? true,
+      };
+    }
+
     return {
       'id': raw['id_usu'] ?? raw['id'],
       'username': raw['username_usu'] ?? raw['username'],
@@ -50,6 +55,63 @@ class PerfilProvider extends ChangeNotifier {
       'horas': raw['horas_usujg'] ?? raw['horas'] ?? 0,
       'favorito': raw['esfav_usujg'] == true || raw['favorito'] == true,
     };
+  }
+
+  Future<Map<String, dynamic>?> cargarPerfilAjeno(int id) async {
+    try {
+      final respuesta = await ApiClient.dio.get('/perfil/$id');
+      final raw = Map<String, dynamic>.from(respuesta.data);
+      return {
+        'perfil': _mapPerfil(raw, actualizarPrivacidad: false),
+        'juegos': (raw['juegos'] as List<dynamic>? ?? [])
+            .map((j) => _mapJuego(Map<String, dynamic>.from(j)))
+            .toList(),
+        'steam': raw['steam'],
+      };
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? 'Error al cargar perfil';
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> compararBiblioteca(int otroUserId) async {
+    try {
+      final respuesta = await ApiClient.dio.get('/perfil/comparar/$otroUserId');
+      return Map<String, dynamic>.from(respuesta.data);
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? 'Error al comparar bibliotecas';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> descubrirUsuarios({
+    String? tipo,
+    String? pais,
+    int? appid,
+  }) async {
+    _descubrirCargando = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final params = <String, dynamic>{};
+      if (tipo != null && tipo.isNotEmpty) params['tipo'] = tipo;
+      if (pais != null && pais.isNotEmpty) params['pais'] = pais;
+      if (appid != null) params['appid'] = appid;
+
+      final respuesta = await ApiClient.dio.get(
+        '/perfil/descubrir',
+        queryParameters: params.isEmpty ? null : params,
+      );
+      _usuariosDescubrir = respuesta.data['usuarios'] ?? [];
+      _descubrirCargando = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? 'Error al descubrir usuarios';
+      _descubrirCargando = false;
+      notifyListeners();
+    }
   }
 
   // Cargar perfil de cualquier usuario por id

@@ -5,7 +5,8 @@ import '../../../widgets/steam_app_bar.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../busqueda/screens/busqueda_screen.dart';
 import '../../chat/screens/chat_screen.dart';
-import '../../matches/screens/matches_screen.dart';
+import '../../amistad/screens/amistad_screen.dart';
+import '../../descubrir/screens/descubrir_gamers_screen.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../publicaciones/screens/publicaciones_screen.dart';
 
@@ -175,7 +176,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const MatchesScreen(),
+                        builder: (_) => const DescubrirGamersScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                _QuickAccessCard(
+                  icon: Icons.group_outlined,
+                  title: 'Amigos',
+                  description: 'Solicitudes y lista de amigos',
+                  color: SteamColors.green,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AmistadScreen(),
                       ),
                     );
                   },

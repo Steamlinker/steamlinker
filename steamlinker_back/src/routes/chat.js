@@ -15,12 +15,19 @@ router.get('/conversaciones', verificarToken, async (req, res) => {
             `SELECT c.*,
                     u1.username_usu AS username_participante1,
                     u2.username_usu AS username_participante2,
-                    -- Ultimo mensaje de la conversacion
-                    (SELECT mensaje_chat FROM mensaje 
-                     WHERE id_chat = c.id_chat 
+                    CASE
+                        WHEN c.id_participante1 = $1 THEN u2.id_usu
+                        ELSE u1.id_usu
+                    END AS otro_id,
+                    CASE
+                        WHEN c.id_participante1 = $1 THEN u2.username_usu
+                        ELSE u1.username_usu
+                    END AS otro_username,
+                    (SELECT mensaje_chat FROM mensaje
+                     WHERE id_chat = c.id_chat
                      ORDER BY creadoen_mensaje DESC LIMIT 1) AS ultimo_mensaje,
-                    (SELECT creadoen_mensaje FROM mensaje 
-                     WHERE id_chat = c.id_chat 
+                    (SELECT creadoen_mensaje FROM mensaje
+                     WHERE id_chat = c.id_chat
                      ORDER BY creadoen_mensaje DESC LIMIT 1) AS fecha_ultimo_mensaje
              FROM chat c
              JOIN usuarios u1 ON c.id_participante1 = u1.id_usu
@@ -89,14 +96,22 @@ router.post('/:id/mensaje', verificarToken, async (req, res) => {
             return res.status(403).json({ error: 'No tienes acceso a este chat' });
         }
 
-        const resultado = await pool.query(
+        const insertado = await pool.query(
             `INSERT INTO mensaje (id_chat, id_emisor, mensaje_chat, tipo_mensaje, parent_mensaje)
              VALUES ($1, $2, $3, $4, $5)
              RETURNING *`,
             [req.params.id, req.usuario.id, mensaje, tipo || 'texto', parent_mensaje || null]
         );
 
-        res.status(201).json(resultado.rows[0]);
+        const conEmisor = await pool.query(
+            `SELECT m.*, u.username_usu AS emisor_username
+             FROM mensaje m
+             JOIN usuarios u ON m.id_emisor = u.id_usu
+             WHERE m.id_mensaje = $1`,
+            [insertado.rows[0].id_mensaje]
+        );
+
+        res.status(201).json(conEmisor.rows[0]);
 
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -107,14 +122,17 @@ router.post('/:id/mensaje', verificarToken, async (req, res) => {
 // Inicia una conversacion con otro usuario directamente
 // No requiere match previo
 router.post('/iniciar', verificarToken, async (req, res) => {
-    const { id_receptor } = req.body;
+    const id_receptor = parseInt(req.body.id_receptor, 10);
 
-    if (!id_receptor) {
+    if (!id_receptor || Number.isNaN(id_receptor)) {
         return res.status(400).json({ error: 'id_receptor es obligatorio' });
     }
 
+    if (id_receptor === req.usuario.id) {
+        return res.status(400).json({ error: 'No puedes chatear contigo mismo' });
+    }
+
     try {
-        // Verificar que no exista ya un chat entre estos dos usuarios
         const existe = await pool.query(
             `SELECT * FROM chat 
              WHERE (id_participante1 = $1 AND id_participante2 = $2)

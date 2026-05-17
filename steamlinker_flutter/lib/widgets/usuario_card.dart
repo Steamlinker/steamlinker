@@ -1,97 +1,118 @@
-// Tarjeta reutilizable para mostrar un usuario
-// Se usa en busqueda y lista de matches
-
 import 'package:flutter/material.dart';
+import '../core/constants/pais_util.dart';
+import '../theme/colors.dart';
 
 class UsuarioCard extends StatelessWidget {
   final Map<String, dynamic> usuario;
   final VoidCallback? onTap;
   final Widget? accion;
+  final String? subtitulo;
 
   const UsuarioCard({
     super.key,
     required this.usuario,
     this.onTap,
     this.accion,
+    this.subtitulo,
   });
 
   @override
   Widget build(BuildContext context) {
+    final username =
+        usuario['username_usu'] ?? usuario['username'] ?? 'Usuario';
+    final paisRaw = usuario['pais_usu'] ?? usuario['pais'];
+    final pais = paisRaw != null ? PaisUtil.codigoANombre(paisRaw.toString()) : null;
     final reputacion = double.tryParse(
-      usuario['repu_usu']?.toString() ?? '0',
-    ) ?? 0.0;
+          usuario['repu_usu']?.toString() ?? usuario['repu']?.toString() ?? '0',
+        ) ??
+        0.0;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF161B22),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF30363D)),
-        ),
-        child: Row(
-          children: [
-            // Avatar
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: const Color(0xFF1A9FFF),
-              child: Text(
-                (usuario['username_usu'] ?? usuario['username'] ?? '?')[0].toUpperCase(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Colors.white,
+    return Material(
+      color: SteamColors.bgPanel,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: SteamColors.border),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: SteamColors.blue.withOpacity(0.2),
+                child: Text(
+                  username.isNotEmpty ? username[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: SteamColors.blue,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-
-            // Info del usuario
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    usuario['username_usu'] ?? usuario['username'] ?? '',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      username,
+                      style: const TextStyle(
+                        color: SteamColors.light,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      // Pais
-                      if (usuario['pais_usu'] != null) ...[
-                        const Icon(Icons.location_on, size: 12, color: Color(0xFF8B949E)),
-                        const SizedBox(width: 2),
-                        Text(
-                          usuario['pais_usu'],
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF8B949E)),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      // Reputacion
-                      const Icon(Icons.star, size: 12, color: Color(0xFF3FB950)),
-                      const SizedBox(width: 2),
+                    if (subtitulo != null) ...[
+                      const SizedBox(height: 4),
                       Text(
-                        reputacion.toStringAsFixed(1),
+                        subtitulo!,
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF3FB950),
-                          fontWeight: FontWeight.w600,
+                          color: SteamColors.textSec,
+                          fontSize: 12,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (pais != null && pais != PaisUtil.todos) ...[
+                          const Icon(Icons.public, size: 12, color: SteamColors.muted),
+                          const SizedBox(width: 4),
+                          Text(
+                            pais,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: SteamColors.textSec,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        const Icon(Icons.star_rounded, size: 12, color: SteamColors.green),
+                        const SizedBox(width: 2),
+                        Text(
+                          reputacion.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: SteamColors.green,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-
-            // Accion opcional
-            ?accion,
-          ],
+              if (accion != null) accion!,
+              if (onTap != null && accion == null)
+                const Icon(Icons.chevron_right, color: SteamColors.muted, size: 20),
+            ],
+          ),
         ),
       ),
     );

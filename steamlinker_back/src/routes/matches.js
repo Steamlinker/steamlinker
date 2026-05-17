@@ -4,19 +4,20 @@
 const express = require('express');
 const pool = require('../db');
 const { verificarToken } = require('./auth');
+const { crearNotificacion, usernameDe } = require('../services/notificacionesService');
 
 const router = express.Router();
 
 // POST /matches/enviar
 // Envia una solicitud de match a otro usuario
 router.post('/enviar', verificarToken, async (req, res) => {
-    const { id_receptor, id_publi } = req.body;
+    const { id_publi } = req.body;
+    const id_receptor = parseInt(req.body.id_receptor, 10);
 
-    if (!id_receptor) {
+    if (!id_receptor || Number.isNaN(id_receptor)) {
         return res.status(400).json({ error: 'id_receptor es obligatorio' });
     }
 
-    // Verificar que no se este enviando a si mismo (el constraint lo hace tambien)
     if (id_receptor === req.usuario.id) {
         return res.status(400).json({ error: 'No puedes enviarte una solicitud a ti mismo' });
     }
@@ -41,7 +42,21 @@ router.post('/enviar', verificarToken, async (req, res) => {
             [req.usuario.id, id_receptor, id_publi || null]
         );
 
-        res.status(201).json(resultado.rows[0]);
+        const match = resultado.rows[0];
+        try {
+            const solicitante = await usernameDe(req.usuario.id);
+            await crearNotificacion({
+                idUsuario: id_receptor,
+                tipo: 'match',
+                titulo: 'Nueva solicitud de match',
+                cuerpo: `${solicitante} quiere conectar contigo.`,
+                refTipo: 'match',
+                refId: match.id_match,
+                avatar: solicitante[0]?.toUpperCase() || 'M',
+            });
+        } catch (_) { /* no bloquear si falla la notificación */ }
+
+        res.status(201).json(match);
 
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -115,18 +130,31 @@ router.put('/:id/responder', verificarToken, async (req, res) => {
             return res.status(404).json({ error: 'Match no encontrado o no eres el receptor' });
         }
 
-        // Si se acepta el match, crear un chat entre los dos usuarios automaticamente
+        const match = resultado.rows[0];
+
         if (estado === 'Aceptada') {
-            const match = resultado.rows[0];
             await pool.query(
                 `INSERT INTO chat (id_participante1, id_participante2)
                  VALUES ($1, $2)
                  ON CONFLICT DO NOTHING`,
                 [match.id_solicitante, match.id_receptor]
             );
+
+            try {
+                const receptor = await usernameDe(req.usuario.id);
+                await crearNotificacion({
+                    idUsuario: match.id_solicitante,
+                    tipo: 'match_aceptado',
+                    titulo: 'Match aceptado',
+                    cuerpo: `${receptor} aceptó tu solicitud. Ya pueden chatear.`,
+                    refTipo: 'match',
+                    refId: match.id_match,
+                    avatar: receptor[0]?.toUpperCase() || 'M',
+                });
+            } catch (_) { /* ignore */ }
         }
 
-        res.json(resultado.rows[0]);
+        res.json(match);
 
     } catch (err) {
         res.status(500).json({ error: err.message });

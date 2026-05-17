@@ -1,15 +1,16 @@
 const express = require('express');
 const pool = require('../db');
 const { verificarToken } = require('./auth');
+const { crearNotificacion, usernameDe } = require('../services/notificacionesService');
 
 const router = express.Router();
 
 // POST /amistad/enviar
 // Envia una solicitud de amistad
 router.post('/enviar', verificarToken, async (req, res) => {
-    const { id_receptor } = req.body;
+    const id_receptor = parseInt(req.body.id_receptor, 10);
 
-    if (!id_receptor) {
+    if (!id_receptor || Number.isNaN(id_receptor)) {
         return res.status(400).json({ error: 'id_receptor es obligatorio' });
     }
 
@@ -35,7 +36,21 @@ router.post('/enviar', verificarToken, async (req, res) => {
             [req.usuario.id, id_receptor]
         );
 
-        res.status(201).json(resultado.rows[0]);
+        const solicitud = resultado.rows[0];
+        try {
+            const solicitante = await usernameDe(req.usuario.id);
+            await crearNotificacion({
+                idUsuario: id_receptor,
+                tipo: 'friend',
+                titulo: 'Nueva solicitud de amistad',
+                cuerpo: `${solicitante} quiere ser tu amigo.`,
+                refTipo: 'amistad',
+                refId: solicitud.id_amistad,
+                avatar: solicitante[0]?.toUpperCase() || 'A',
+            });
+        } catch (_) { /* ignore */ }
+
+        res.status(201).json(solicitud);
 
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -117,7 +132,24 @@ router.put('/:id/responder', verificarToken, async (req, res) => {
             return res.status(404).json({ error: 'Solicitud no encontrada o no eres el receptor' });
         }
 
-        res.json(resultado.rows[0]);
+        const solicitud = resultado.rows[0];
+
+        if (estado === 'Aceptada') {
+            try {
+                const receptor = await usernameDe(req.usuario.id);
+                await crearNotificacion({
+                    idUsuario: solicitud.id_solicitante,
+                    tipo: 'friend_aceptado',
+                    titulo: 'Solicitud de amistad aceptada',
+                    cuerpo: `${receptor} aceptó tu solicitud de amistad.`,
+                    refTipo: 'amistad',
+                    refId: solicitud.id_amistad,
+                    avatar: receptor[0]?.toUpperCase() || 'A',
+                });
+            } catch (_) { /* ignore */ }
+        }
+
+        res.json(solicitud);
 
     } catch (err) {
         res.status(500).json({ error: err.message });

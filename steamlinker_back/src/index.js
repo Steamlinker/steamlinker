@@ -16,6 +16,7 @@ const chatRoutes = require('./routes/chat');
 const calificacionesRoutes = require('./routes/calificaciones');
 const reportesRoutes = require('./routes/reportes');
 const amistadRoutes = require('./routes/amistad');
+const notificacionesRoutes = require('./routes/notificaciones');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ app.use('/chat', chatRoutes);
 app.use('/calificaciones', calificacionesRoutes);
 app.use('/reportes', reportesRoutes);
 app.use('/amistad', amistadRoutes);
+app.use('/notificaciones', notificacionesRoutes);
 app.use('/api/admin', adminRoutes);
 // Ruta de salud
 app.get('/health', (req, res) => {

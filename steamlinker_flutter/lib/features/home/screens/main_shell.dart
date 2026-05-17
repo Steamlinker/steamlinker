@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../theme/colors.dart';
-import '../../../models/notification_model.dart';
+import '../../notifications/providers/notificaciones_provider.dart';
 import '../screens/home_screen.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../../perfil/screens/perfil_screen.dart';
@@ -14,9 +15,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
-
-  int get _unreadCount =>
-      sampleNotifications.where((n) => !n.isRead).length;
+  bool _notifInit = false;
 
   final List<Widget> _pages = const [
     HomeScreen(),
@@ -25,20 +24,39 @@ class _MainShellState extends State<MainShell> {
   ];
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_notifInit) {
+      _notifInit = true;
+      context.read<NotificacionesProvider>().cargarContador();
+    }
+  }
+
+  void _onNavTap(int index) {
+    setState(() => _currentIndex = index);
+    if (index == 1) {
+      context.read<NotificacionesProvider>().cargar();
+    } else {
+      context.read<NotificacionesProvider>().cargarContador();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final unreadCount = context.watch<NotificacionesProvider>().noLeidas;
+
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
       body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: _BottomNavBar(
         currentIndex: _currentIndex,
-        unreadCount: _unreadCount,
-        onTap: (i) => setState(() => _currentIndex = i),
+        unreadCount: unreadCount,
+        onTap: _onNavTap,
       ),
     );
   }
 }
 
-// ── Barra de navegación inferior ─────────────────────────────────────────
 class _BottomNavBar extends StatelessWidget {
   final int currentIndex;
   final int unreadCount;
@@ -93,7 +111,6 @@ class _BottomNavBar extends StatelessWidget {
   }
 }
 
-// ── Item individual de la barra ───────────────────────────────────────────
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final IconData activeIcon;

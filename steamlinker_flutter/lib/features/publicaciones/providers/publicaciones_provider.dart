@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import '../../../core/constants/publicacion_constants.dart';
 import '../../../core/network/api_client.dart';
 
 class PublicacionesProvider extends ChangeNotifier {
@@ -10,28 +11,67 @@ class PublicacionesProvider extends ChangeNotifier {
   List<dynamic> _publicaciones = [];
   int _total = 0;
 
+  String? _filtroTipo;
+  String? _filtroPais;
+  int? _filtroAppid;
+  String? _filtroJuegoNombre;
+  String _filtroOrden = PublicacionConstants.ordenRecientes;
+
   bool get cargando => _cargando;
   String? get error => _error;
   List<dynamic> get publicaciones => _publicaciones;
   int get total => _total;
 
-  // Buscar publicaciones con filtros opcionales
-  Future<void> buscar({
+  String? get filtroTipo => _filtroTipo;
+  String? get filtroPais => _filtroPais;
+  int? get filtroAppid => _filtroAppid;
+  String? get filtroJuegoNombre => _filtroJuegoNombre;
+  String get filtroOrden => _filtroOrden;
+
+  bool get tieneFiltrosActivos =>
+      (_filtroTipo != null && _filtroTipo!.isNotEmpty) ||
+      (_filtroPais != null && _filtroPais!.isNotEmpty) ||
+      _filtroAppid != null ||
+      _filtroOrden != PublicacionConstants.ordenRecientes;
+
+  Future<void> setFiltros({
     String? tipo,
     String? pais,
     int? appid,
-    String orden = 'recientes',
+    String? juegoNombre,
+    String? orden,
   }) async {
+    _filtroTipo = tipo != null && tipo.isEmpty ? null : tipo;
+    _filtroPais = pais != null && pais.isEmpty ? null : pais;
+    _filtroAppid = appid;
+    _filtroJuegoNombre = juegoNombre;
+    if (orden != null) _filtroOrden = orden;
+    await buscar();
+  }
+
+  Future<void> limpiarFiltros() async {
+    _filtroTipo = null;
+    _filtroPais = null;
+    _filtroAppid = null;
+    _filtroJuegoNombre = null;
+    _filtroOrden = PublicacionConstants.ordenRecientes;
+    await buscar();
+  }
+
+  Future<void> buscar() async {
     _cargando = true;
     _error = null;
     notifyListeners();
 
     try {
-      final params = <String, dynamic>{};
-      if (tipo != null) params['tipo'] = tipo;
-      if (pais != null) params['pais'] = pais;
-      if (appid != null) params['appid'] = appid;
-      params['orden'] = orden;
+      final params = <String, dynamic>{'orden': _filtroOrden};
+      if (_filtroTipo != null && _filtroTipo!.isNotEmpty) {
+        params['tipo'] = _filtroTipo;
+      }
+      if (_filtroPais != null && _filtroPais!.isNotEmpty) {
+        params['pais'] = _filtroPais;
+      }
+      if (_filtroAppid != null) params['appid'] = _filtroAppid;
 
       final respuesta = await ApiClient.dio.get(
         '/publicaciones/buscar',
@@ -49,7 +89,6 @@ class PublicacionesProvider extends ChangeNotifier {
     }
   }
 
-  // Crear una nueva publicacion
   Future<bool> crear({
     required String tipo,
     required String titulo,
@@ -57,6 +96,7 @@ class PublicacionesProvider extends ChangeNotifier {
     String? pais,
     List<Map<String, dynamic>> juegos = const [],
   }) async {
+    _error = null;
     try {
       await ApiClient.dio.post('/publicaciones/crear', data: {
         'tipo': tipo,
@@ -74,7 +114,6 @@ class PublicacionesProvider extends ChangeNotifier {
     }
   }
 
-  // Cerrar una publicacion
   Future<bool> cerrar(int id) async {
     try {
       await ApiClient.dio.put('/publicaciones/$id/cerrar');

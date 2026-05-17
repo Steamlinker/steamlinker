@@ -372,7 +372,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'PERFIL'),
+      appBar: SteamAppBar(
+        title: Navigator.of(context).canPop() ? 'MIS JUEGOS' : 'PERFIL',
+      ),
       body: perfilProv.cargando && perfil == null
           ? const Center(
               child: CircularProgressIndicator(

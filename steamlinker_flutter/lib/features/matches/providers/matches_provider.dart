@@ -15,6 +15,27 @@ class MatchesProvider extends ChangeNotifier {
   List<dynamic> get recibidos => _recibidos;
   List<dynamic> get enviados => _enviados;
 
+  Future<void> cargarTodo() async {
+    _cargando = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final results = await Future.wait([
+        ApiClient.dio.get('/matches/recibidos'),
+        ApiClient.dio.get('/matches/enviados'),
+      ]);
+      _recibidos = results[0].data['matches'] ?? [];
+      _enviados = results[1].data['matches'] ?? [];
+      _cargando = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? 'Error al cargar matches';
+      _cargando = false;
+      notifyListeners();
+    }
+  }
+
   // Cargar matches recibidos
   Future<void> cargarRecibidos() async {
     _cargando = true;

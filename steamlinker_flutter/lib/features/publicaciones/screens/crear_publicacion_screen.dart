@@ -1,0 +1,313 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/constants/pais_util.dart';
+import '../../../core/constants/publicacion_constants.dart';
+import '../../../theme/colors.dart';
+import '../../../widgets/drop_field.dart';
+import '../../../widgets/steam_app_bar.dart';
+import '../../../widgets/steam_buttons.dart';
+import '../../../widgets/steam_card.dart';
+import '../../../widgets/steam_toast.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../perfil/providers/perfil_provider.dart';
+import '../providers/publicaciones_provider.dart';
+
+class CrearPublicacionScreen extends StatefulWidget {
+  const CrearPublicacionScreen({super.key});
+
+  @override
+  State<CrearPublicacionScreen> createState() => _CrearPublicacionScreenState();
+}
+
+class _CrearPublicacionScreenState extends State<CrearPublicacionScreen> {
+  final _tituloController = TextEditingController();
+  final _descripcionController = TextEditingController();
+  final _busquedaController = TextEditingController();
+
+  String _tipoEtiqueta = PublicacionConstants.tiposCrearEtiquetas.first;
+  String _paisEtiqueta = PaisUtil.todos;
+  final List<Map<String, dynamic>> _juegosSeleccionados = [];
+  bool _guardando = false;
+  bool _buscandoSteam = false;
+  List<dynamic> _resultadosSteam = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _cargarBiblioteca());
+  }
+
+  Future<void> _cargarBiblioteca() async {
+    final auth = context.read<AuthProvider>();
+    final perfil = context.read<PerfilProvider>();
+    final id = auth.usuario?['id'];
+    if (id == null) return;
+    if (perfil.juegos.isEmpty) {
+      await perfil.cargarPerfil(id);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _descripcionController.dispose();
+    _busquedaController.dispose();
+    super.dispose();
+  }
+
+  bool _estaSeleccionado(int appid) =>
+      _juegosSeleccionados.any((j) => j['appid'] == appid);
+
+  void _toggleJuego(Map<String, dynamic> juego) {
+    final appid = juego['appid'];
+    setState(() {
+      if (_estaSeleccionado(appid)) {
+        _juegosSeleccionados.removeWhere((j) => j['appid'] == appid);
+      } else {
+        _juegosSeleccionados.add({
+          'appid': appid,
+          'nombre': juego['nombre'] ?? juego['nom_jg'] ?? '',
+          'headerimg': juego['headerimg'] ?? juego['headerimg_jg'] ?? '',
+          'capsuleimg': juego['capsuleimg'] ?? juego['capsuleimg_jg'] ?? '',
+        });
+      }
+    });
+  }
+
+  Future<void> _buscarEnSteam() async {
+    final query = _busquedaController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _buscandoSteam = true;
+      _resultadosSteam = [];
+    });
+
+    final resultados = await context.read<PerfilProvider>().buscarJuegos(query);
+    if (!mounted) return;
+    setState(() {
+      _resultadosSteam = resultados;
+      _buscandoSteam = false;
+    });
+  }
+
+  Future<void> _publicar() async {
+    final titulo = _tituloController.text.trim();
+    if (titulo.isEmpty) {
+      showSteamToast(context, 'El título es obligatorio', Colors.red);
+      return;
+    }
+
+    setState(() => _guardando = true);
+
+    final pais = _paisEtiqueta == PaisUtil.todos
+        ? null
+        : PaisUtil.nombreACodigo(_paisEtiqueta);
+
+    final exito = await context.read<PublicacionesProvider>().crear(
+      tipo: PublicacionConstants.valorTipoCrear(_tipoEtiqueta),
+      titulo: titulo,
+      descripcion: _descripcionController.text.trim().isEmpty
+          ? null
+          : _descripcionController.text.trim(),
+      pais: pais,
+      juegos: _juegosSeleccionados,
+    );
+
+    if (!mounted) return;
+    setState(() => _guardando = false);
+
+    if (exito) {
+      showSteamToast(context, 'Publicación creada', SteamColors.green);
+      Navigator.of(context).pop();
+    } else {
+      final error = context.read<PublicacionesProvider>().error;
+      showSteamToast(context, error ?? 'No se pudo crear', Colors.red);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final perfilProv = context.watch<PerfilProvider>();
+
+    return Scaffold(
+      backgroundColor: SteamColors.bgDeep,
+      appBar: const SteamAppBar(title: 'NUEVA PUBLICACIÓN'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          SteamCard(
+            icon: Icons.campaign_outlined,
+            title: 'Detalles',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropField(
+                  label: 'Tipo',
+                  value: _tipoEtiqueta,
+                  items: PublicacionConstants.tiposCrearEtiquetas,
+                  onChanged: (v) => setState(() => _tipoEtiqueta = v),
+                ),
+                TextField(
+                  controller: _tituloController,
+                  style: const TextStyle(color: SteamColors.light),
+                  decoration: const InputDecoration(
+                    labelText: 'Título',
+                    hintText: 'Ej. Busco familia para Elden Ring',
+                    filled: true,
+                    fillColor: SteamColors.bgInput,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _descripcionController,
+                  maxLines: 4,
+                  style: const TextStyle(color: SteamColors.light),
+                  decoration: const InputDecoration(
+                    labelText: 'Descripción (opcional)',
+                    filled: true,
+                    fillColor: SteamColors.bgInput,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                DropField(
+                  label: 'País objetivo (opcional)',
+                  value: _paisEtiqueta,
+                  items: [PaisUtil.todos, ...PaisUtil.nombres],
+                  onChanged: (v) => setState(() => _paisEtiqueta = v),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SteamCard(
+            icon: Icons.videogame_asset_outlined,
+            title: 'Juegos (${_juegosSeleccionados.length})',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_juegosSeleccionados.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _juegosSeleccionados.map((j) {
+                      return InputChip(
+                        label: Text(
+                          j['nombre'] ?? 'Juego',
+                          style: const TextStyle(color: SteamColors.light),
+                        ),
+                        deleteIconColor: SteamColors.muted,
+                        backgroundColor: SteamColors.bgPanel,
+                        onDeleted: () => _toggleJuego(j),
+                      );
+                    }).toList(),
+                  ),
+                if (_juegosSeleccionados.isNotEmpty) const SizedBox(height: 12),
+                const Text(
+                  'Tu biblioteca',
+                  style: TextStyle(
+                    color: SteamColors.textSec,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (perfilProv.cargando && perfilProv.juegos.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation(SteamColors.blue),
+                      ),
+                    ),
+                  )
+                else if (perfilProv.juegos.isEmpty)
+                  const Text(
+                    'Agrega juegos a tu perfil para asociarlos a la publicación.',
+                    style: TextStyle(color: SteamColors.textSec, fontSize: 12),
+                  )
+                else
+                  ...perfilProv.juegos.map((juego) {
+                    final seleccionado = _estaSeleccionado(juego['appid']);
+                    return CheckboxListTile(
+                      value: seleccionado,
+                      onChanged: (_) => _toggleJuego(juego),
+                      activeColor: SteamColors.blue,
+                      title: Text(
+                        juego['nombre'] ?? 'Juego',
+                        style: const TextStyle(color: SteamColors.light, fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        '${juego['horas'] ?? 0} h jugadas',
+                        style: const TextStyle(color: SteamColors.textSec, fontSize: 11),
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }),
+                const Divider(color: SteamColors.border, height: 24),
+                const Text(
+                  'Buscar en Steam',
+                  style: TextStyle(
+                    color: SteamColors.textSec,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _busquedaController,
+                  style: const TextStyle(color: SteamColors.light),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _buscarEnSteam(),
+                  decoration: InputDecoration(
+                    hintText: 'Nombre del juego',
+                    filled: true,
+                    fillColor: SteamColors.bgInput,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search, color: SteamColors.muted),
+                      onPressed: _buscarEnSteam,
+                    ),
+                  ),
+                ),
+                if (_buscandoSteam)
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation(SteamColors.blue),
+                      ),
+                    ),
+                  )
+                else
+                  ..._resultadosSteam.map((juego) {
+                    final seleccionado = _estaSeleccionado(juego['appid']);
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: seleccionado
+                          ? const Icon(Icons.check_circle, color: SteamColors.green)
+                          : const Icon(Icons.add_circle_outline, color: SteamColors.blue),
+                      title: Text(
+                        juego['nombre'] ?? '',
+                        style: const TextStyle(color: SteamColors.light, fontSize: 13),
+                      ),
+                      onTap: () => _toggleJuego(juego),
+                    );
+                  }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SteamButtonPrimary(
+            label: _guardando ? 'Publicando...' : 'Publicar',
+            icon: Icons.send_rounded,
+            onTap: _guardando ? null : (_) => _publicar(),
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+}

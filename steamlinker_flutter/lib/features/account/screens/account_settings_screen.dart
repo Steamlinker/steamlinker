@@ -152,7 +152,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'CONFIGURACIÓN DE CUENTA'),
+      appBar: const SteamAppBar(title: 'CONFIGURACIÓN'),
       body: usuario == null
           ? const Center(
               child: Text(

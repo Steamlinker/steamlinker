@@ -34,6 +34,122 @@ router.put('/editar', verificarToken, async (req, res) => {
     }
 });
 
+// GET /perfil/descubrir
+// Usuarios con publicaciones activas (para encontrar familia / miembros)
+router.get('/descubrir', verificarToken, async (req, res) => {
+    const { tipo, pais, appid } = req.query;
+
+    try {
+        let consulta = `
+            SELECT u.id_usu, u.username_usu, u.descrip_usu, u.pais_usu, u.repu_usu,
+                   COUNT(DISTINCT p.id_publi)::int AS total_publicaciones
+            FROM usuarios u
+            JOIN publicaciones p ON p.id_usu = u.id_usu
+            LEFT JOIN publicacion_juegos pj ON pj.id_publi = p.id_publi
+            WHERE p.estado_publi = TRUE
+              AND COALESCE(u.baneado_usu, FALSE) = FALSE
+              AND u.id_usu <> $1
+        `;
+
+        const parametros = [req.usuario.id];
+        let contador = 2;
+
+        if (tipo) {
+            consulta += ` AND p.tipo_publi = $${contador}`;
+            parametros.push(tipo);
+            contador++;
+        }
+
+        if (pais) {
+            consulta += ` AND p.paisfiltro_publi = $${contador}`;
+            parametros.push(pais);
+            contador++;
+        }
+
+        if (appid) {
+            consulta += ` AND pj.appid = $${contador}`;
+            parametros.push(parseInt(appid, 10));
+            contador++;
+        }
+
+        consulta += `
+            GROUP BY u.id_usu, u.username_usu, u.descrip_usu, u.pais_usu, u.repu_usu
+            ORDER BY u.repu_usu DESC, total_publicaciones DESC
+        `;
+
+        const resultado = await pool.query(consulta, parametros);
+        res.json({ usuarios: resultado.rows, total: resultado.rows.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /perfil/comparar/:id
+// Compara bibliotecas (juegos en perfil) entre el usuario logueado y otro
+router.get('/comparar/:id', verificarToken, async (req, res) => {
+    const otroId = parseInt(req.params.id, 10);
+    const miId = req.usuario.id;
+
+    if (!otroId || Number.isNaN(otroId)) {
+        return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    if (otroId === miId) {
+        return res.status(400).json({ error: 'No puedes compararte contigo mismo' });
+    }
+
+    try {
+        const queryJuegos = `
+            SELECT j.appid, j.nom_jg, j.headerimg_jg, j.capsuleimg_jg, uj.horas_usujg
+            FROM usuarios_juegos uj
+            JOIN juegos j ON uj.appid = j.appid
+            WHERE uj.id_usu = $1
+        `;
+
+        const [misRows, susRows, otroUser] = await Promise.all([
+            pool.query(queryJuegos, [miId]),
+            pool.query(queryJuegos, [otroId]),
+            pool.query(
+                'SELECT username_usu FROM usuarios WHERE id_usu = $1',
+                [otroId]
+            ),
+        ]);
+
+        if (otroUser.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const misJuegos = misRows.rows;
+        const susJuegos = susRows.rows;
+        const setOtro = new Set(susJuegos.map((j) => j.appid));
+
+        const comunes = misJuegos
+            .filter((j) => setOtro.has(j.appid))
+            .map((j) => {
+                const otro = susJuegos.find((o) => o.appid === j.appid);
+                return {
+                    appid: j.appid,
+                    nombre: j.nom_jg,
+                    headerimg: j.headerimg_jg,
+                    capsuleimg: j.capsuleimg_jg,
+                    misHoras: j.horas_usujg || 0,
+                    susHoras: otro?.horas_usujg || 0,
+                };
+            })
+            .sort((a, b) => (b.misHoras + b.susHoras) - (a.misHoras + a.susHoras));
+
+        res.json({
+            otro_username: otroUser.rows[0].username_usu,
+            totalA: misJuegos.length,
+            totalB: susJuegos.length,
+            commonCount: comunes.length,
+            commonGames: comunes,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /perfil/:id
 // Devuelve el perfil publico de cualquier usuario
 router.get('/:id', verificarToken, async (req, res) => {

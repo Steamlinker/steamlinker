@@ -5,11 +5,17 @@ import '../theme/colors.dart';
 class NotificationTile extends StatelessWidget {
   final NotificationModel notif;
   final VoidCallback onChanged;
+  final VoidCallback? onOpen;
+  final Future<void> Function(bool leida)? onToggleRead;
+  final Future<void> Function(bool? interes)? onInteres;
 
   const NotificationTile({
     super.key,
     required this.notif,
     required this.onChanged,
+    this.onOpen,
+    this.onToggleRead,
+    this.onInteres,
   });
 
   bool get _isEmoji =>
@@ -53,17 +59,32 @@ class NotificationTile extends StatelessWidget {
             'toggle_read', Icons.done_all_rounded, SteamColors.blue,
             notif.isRead ? 'Marcar no leída' : 'Marcar leída'),
       ],
-    ).then((val) {
+    ).then((val) async {
       if (val == null) return;
       switch (val) {
         case 'interested':
-          notif.interested = notif.interested == true ? null : true;
+          final nuevo = notif.interested == true ? null : true;
+          if (onInteres != null) {
+            await onInteres!(nuevo);
+          } else {
+            notif.interested = nuevo;
+          }
           break;
         case 'not_interested':
-          notif.interested = notif.interested == false ? null : false;
+          final nuevo = notif.interested == false ? null : false;
+          if (onInteres != null) {
+            await onInteres!(nuevo);
+          } else {
+            notif.interested = nuevo;
+          }
           break;
         case 'toggle_read':
-          notif.isRead = !notif.isRead;
+          final nuevo = !notif.isRead;
+          if (onToggleRead != null) {
+            await onToggleRead!(nuevo);
+          } else {
+            notif.isRead = nuevo;
+          }
           break;
       }
       onChanged();
@@ -91,8 +112,15 @@ class NotificationTile extends StatelessWidget {
           ? Colors.transparent
           : SteamColors.blue.withOpacity(0.05),
       child: InkWell(
-        onTap: () {
-          notif.isRead = true;
+        onTap: () async {
+          if (!notif.isRead) {
+            if (onToggleRead != null) {
+              await onToggleRead!(true);
+            } else {
+              notif.isRead = true;
+            }
+          }
+          onOpen?.call();
           onChanged();
         },
         splashColor: SteamColors.blue.withOpacity(0.07),
@@ -101,7 +129,6 @@ class NotificationTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child:
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // ── Avatar con badge ─────────────────────────────────────
             Stack(clipBehavior: Clip.none, children: [
               Container(
                 width: 44,
@@ -153,15 +180,11 @@ class NotificationTile extends StatelessWidget {
                 ),
               ),
             ]),
-
             const SizedBox(width: 12),
-
-            // ── Contenido ────────────────────────────────────────────
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tipo + tiempo + punto de no leída
                   Row(children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -197,8 +220,6 @@ class NotificationTile extends StatelessWidget {
                     ],
                   ]),
                   const SizedBox(height: 5),
-
-                  // Título
                   Text(
                     notif.title,
                     style: TextStyle(
@@ -212,8 +233,6 @@ class NotificationTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 3),
-
-                  // Cuerpo
                   Text(
                     notif.body,
                     maxLines: 2,
@@ -224,8 +243,6 @@ class NotificationTile extends StatelessWidget {
                       height: 1.4,
                     ),
                   ),
-
-                  // Etiqueta de interés
                   if (notif.interested != null) ...[
                     const SizedBox(height: 6),
                     Row(children: [
@@ -256,10 +273,7 @@ class NotificationTile extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(width: 4),
-
-            // ── Tres puntos ──────────────────────────────────────────
             Builder(
               builder: (btnCtx) => GestureDetector(
                 onTap: () => _showMenu(btnCtx),
