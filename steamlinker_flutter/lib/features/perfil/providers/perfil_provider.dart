@@ -10,13 +10,24 @@ class PerfilProvider extends ChangeNotifier {
   String? _error;
   Map<String, dynamic>? _perfil;
   List<dynamic> _juegos = [];
+  Map<String, dynamic>? _privacidad;
 
   bool get cargando => _cargando;
   String? get error => _error;
   Map<String, dynamic>? get perfil => _perfil;
   List<dynamic> get juegos => _juegos;
+  Map<String, dynamic>? get privacidad => _privacidad;
 
   Map<String, dynamic> _mapPerfil(Map<String, dynamic> raw) {
+    // Mapear privacidad si viene en la respuesta
+    _privacidad = {
+      'perfil_publico': raw['perfil_publico'] ?? true,
+      'mostrar_biblioteca': raw['mostrar_biblioteca'] ?? true,
+      'notificaciones_amigos': raw['notificaciones_amigos'] ?? true,
+      'dos_factor': raw['dos_factor'] ?? false,
+      'correos_promocionales': raw['correos_promocionales'] ?? true,
+    };
+    
     return {
       'id': raw['id_usu'] ?? raw['id'],
       'username': raw['username_usu'] ?? raw['username'],
@@ -192,6 +203,36 @@ class PerfilProvider extends ChangeNotifier {
       return true;
     } on DioException catch (e) {
       _error = e.response?.data['error'] ?? 'Error al eliminar juego';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Guardar ajustes de privacidad
+  Future<bool> guardarPrivacidad({
+    bool? perfilPublico,
+    bool? mostrarBiblioteca,
+    bool? notificacionesAmigos,
+    bool? dosFactor,
+    bool? correosPromocionales,
+  }) async {
+    try {
+      final respuesta = await ApiClient.dio.put(
+        '/perfil/privacidad',
+        data: {
+          'perfil_publico': perfilPublico,
+          'mostrar_biblioteca': mostrarBiblioteca,
+          'notificaciones_amigos': notificacionesAmigos,
+          'dos_factor': dosFactor,
+          'correos_promocionales': correosPromocionales,
+        },
+      );
+      
+      _privacidad = Map<String, dynamic>.from(respuesta.data['privacidad']);
+      notifyListeners();
+      return true;
+    } on DioException catch (e) {
+      _error = e.response?.data['error'] ?? 'Error al guardar privacidad';
       notifyListeners();
       return false;
     }

@@ -40,7 +40,9 @@ router.get('/:id', verificarToken, async (req, res) => {
     try {
         const usuario = await pool.query(
             `SELECT id_usu, username_usu, descrip_usu, pais_usu, 
-                    repu_usu, totalrating_usu, tipo_usu, creadoen_usu
+                    repu_usu, totalrating_usu, tipo_usu, creadoen_usu,
+                    perfil_publico, mostrar_biblioteca, notificaciones_amigos, 
+                    dos_factor, correos_promocionales
              FROM usuarios WHERE id_usu = $1`,
             [req.params.id]
         );
@@ -250,6 +252,51 @@ router.get('/juegos/buscar', verificarToken, async (req, res) => {
         }));
 
         res.json({ juegos, total: juegos.length });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PUT /perfil/privacidad
+// Guarda los ajustes de privacidad del usuario
+router.put('/privacidad', verificarToken, async (req, res) => {
+    const {
+        perfil_publico,
+        mostrar_biblioteca,
+        notificaciones_amigos,
+        dos_factor,
+        correos_promocionales
+    } = req.body;
+
+    try {
+        const resultado = await pool.query(
+            `UPDATE usuarios 
+             SET perfil_publico = COALESCE($1, perfil_publico),
+                 mostrar_biblioteca = COALESCE($2, mostrar_biblioteca),
+                 notificaciones_amigos = COALESCE($3, notificaciones_amigos),
+                 dos_factor = COALESCE($4, dos_factor),
+                 correos_promocionales = COALESCE($5, correos_promocionales)
+             WHERE id_usu = $6
+             RETURNING perfil_publico, mostrar_biblioteca, notificaciones_amigos, dos_factor, correos_promocionales`,
+            [
+                perfil_publico ?? null,
+                mostrar_biblioteca ?? null,
+                notificaciones_amigos ?? null,
+                dos_factor ?? null,
+                correos_promocionales ?? null,
+                req.usuario.id
+            ]
+        );
+
+        if (resultado.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json({
+            mensaje: 'Ajustes de privacidad guardados',
+            privacidad: resultado.rows[0]
+        });
 
     } catch (err) {
         res.status(500).json({ error: err.message });

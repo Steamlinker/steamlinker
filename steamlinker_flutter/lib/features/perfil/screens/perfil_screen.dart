@@ -359,6 +359,75 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  Widget _buildGameListTile(Map<String, dynamic> juego) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: juego['favorito'] == true
+                ? Border.all(color: SteamColors.red, width: 2)
+                : null,
+            image:
+                juego['headerimg'] != null &&
+                    juego['headerimg'].toString().isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(juego['headerimg']),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+            color: SteamColors.bgPanel,
+          ),
+        ),
+        title: Text(
+          juego['nombre'] ?? 'Juego',
+          style: const TextStyle(
+            color: SteamColors.light,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'Horas: ${juego['horas']} • ${juego['favorito'] == true ? '⭐ Favorito' : 'No favorito'}',
+          style: const TextStyle(color: SteamColors.textSec, fontSize: 12),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                juego['favorito'] == true
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: juego['favorito'] == true
+                    ? SteamColors.red
+                    : SteamColors.muted,
+              ),
+              onPressed: () => _toggleFavorito(juego),
+              tooltip: juego['favorito'] == true
+                  ? 'Remover de favoritos'
+                  : 'Agregar a favoritos',
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: SteamColors.blue),
+              onPressed: () => _editarHorasJuego(juego),
+              tooltip: 'Editar horas',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: SteamColors.red),
+              onPressed: () =>
+                  _eliminarJuego(juego['appid'], juego['nombre'] ?? 'el juego'),
+              tooltip: 'Eliminar juego',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final perfilProv = context.watch<PerfilProvider>();
@@ -528,7 +597,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                       ? 'Importando...'
                                       : 'Importar biblioteca',
                                   icon: Icons.download,
-                                    onTap: _importandoSteam
+                                  onTap: _importandoSteam
                                       ? null
                                       : (ctx) => _importarBibliotecaSteam(),
                                 ),
@@ -582,7 +651,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                       ? 'Vinculando...'
                                       : 'Vincular Steam',
                                   icon: Icons.link,
-                                    onTap: _vinculandoSteam
+                                  onTap: _vinculandoSteam
                                       ? null
                                       : (ctx) => _vincularSteamCuenta(),
                                 ),
@@ -611,18 +680,38 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         TextField(
                           controller: _searchController,
                           style: const TextStyle(color: SteamColors.light),
+                          onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
                             labelText: 'Nombre del juego',
                             hintText: 'Buscar en Steam',
                             filled: true,
                             fillColor: SteamColors.bgInput,
-                            suffixIcon: IconButton(
-                              icon: const Icon(
-                                Icons.search,
-                                color: SteamColors.muted,
-                              ),
-                              onPressed: () =>
-                                  _buscarJuegos(_searchController.text),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.search,
+                                    color: SteamColors.muted,
+                                  ),
+                                  onPressed: () =>
+                                      _buscarJuegos(_searchController.text),
+                                ),
+                                if (_searchController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.clear,
+                                      color: SteamColors.muted,
+                                    ),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _resultados = [];
+                                        _errorBusqueda = null;
+                                      });
+                                    },
+                                  ),
+                              ],
                             ),
                           ),
                           textInputAction: TextInputAction.search,
@@ -644,8 +733,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           )
                         else if (_resultados.isEmpty)
                           const Text(
-                            'Busca un juego para agregarlo a tu perfil.',
-                            style: TextStyle(color: SteamColors.textSec),
+                            'Escribe el nombre de un juego y presiona Enter para agregarlo a tu biblioteca.',
+                            style: TextStyle(
+                              color: SteamColors.textSec,
+                              fontSize: 12,
+                            ),
                           )
                         else
                           Column(
@@ -695,7 +787,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                         label: 'Agregado',
                                         onTap: () {},
                                       )
-                                        : SteamButtonPrimary(
+                                    : SteamButtonPrimary(
                                         label: 'Agregar',
                                         icon: Icons.add,
                                         onTap: (ctx) => _agregarJuego(juego),
@@ -709,7 +801,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                   const SizedBox(height: 16),
                   SteamCard(
                     icon: Icons.videogame_asset_outlined,
-                    title: 'Juegos',
+                    title: 'Juegos (${perfilProv.juegos.length})',
                     child: Column(
                       children: perfilProv.juegos.isEmpty
                           ? [
@@ -718,83 +810,38 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                 style: TextStyle(color: SteamColors.textSec),
                               ),
                             ]
-                          : perfilProv.juegos.map((juego) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                ),
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Container(
-                                    width: 52,
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      image:
-                                          juego['headerimg'] != null &&
-                                              juego['headerimg']
-                                                  .toString()
-                                                  .isNotEmpty
-                                          ? DecorationImage(
-                                              image: NetworkImage(
-                                                juego['headerimg'],
-                                              ),
-                                              fit: BoxFit.cover,
-                                            )
-                                          : null,
-                                      color: SteamColors.bgPanel,
-                                    ),
+                          : [
+                              // Juegos favoritos
+                              ...perfilProv.juegos
+                                  .where((j) => j['favorito'] == true)
+                                  .map((juego) {
+                                    return _buildGameListTile(juego);
+                                  })
+                                  .toList(),
+                              // Divisor si hay favoritos y no favoritos
+                              if (perfilProv.juegos.any(
+                                    (j) => j['favorito'] == true,
+                                  ) &&
+                                  perfilProv.juegos.any(
+                                    (j) => j['favorito'] != true,
+                                  ))
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
                                   ),
-                                  title: Text(
-                                    juego['nombre'] ?? 'Juego',
-                                    style: const TextStyle(
-                                      color: SteamColors.light,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    'Horas: ${juego['horas']} • Favorito: ${juego['favorito'] ? 'Sí' : 'No'}',
-                                    style: const TextStyle(
-                                      color: SteamColors.textSec,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: Icon(
-                                          juego['favorito'] == true
-                                              ? Icons.favorite_rounded
-                                              : Icons.favorite_border_rounded,
-                                          color: juego['favorito'] == true
-                                              ? SteamColors.red
-                                              : SteamColors.muted,
-                                        ),
-                                        onPressed: () => _toggleFavorito(juego),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit,
-                                          color: SteamColors.blue,
-                                        ),
-                                        onPressed: () =>
-                                            _editarHorasJuego(juego),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: SteamColors.red,
-                                        ),
-                                        onPressed: () => _eliminarJuego(
-                                          juego['appid'],
-                                          juego['nombre'] ?? 'el juego',
-                                        ),
-                                      ),
-                                    ],
+                                  child: Divider(
+                                    color: SteamColors.border.withOpacity(0.3),
+                                    height: 1,
                                   ),
                                 ),
-                              );
-                            }).toList(),
+                              // Juegos no favoritos
+                              ...perfilProv.juegos
+                                  .where((j) => j['favorito'] != true)
+                                  .map((juego) {
+                                    return _buildGameListTile(juego);
+                                  })
+                                  .toList(),
+                            ],
                     ),
                   ),
                 ],

@@ -56,7 +56,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       _originalDescripcion = _descripcionController.text;
       // Si la BD almacena un código de país corto (ej: 'CO'), convertirlo a nombre para mostrar
       final rawPais = perfil['pais'] ?? usuario['pais'] ?? 'Colombia';
-      _pais = rawPais is String && rawPais.length <= 3 ? _codeToPais(rawPais) : rawPais;
+      _pais = rawPais is String && rawPais.length <= 3
+          ? _codeToPais(rawPais)
+          : rawPais;
       _originalPais = _pais;
       _tieneCambios = false;
       setState(() {});
@@ -455,6 +457,28 @@ class _PrivacyCardState extends State<_PrivacyCard> {
   bool promoEmails = true;
   bool _hasChanges = false;
   bool _saving = false;
+  bool _inicializado = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_inicializado) {
+      _inicializado = true;
+      _cargarPrivacidad();
+    }
+  }
+
+  Future<void> _cargarPrivacidad() async {
+    final perfilProv = context.read<PerfilProvider>();
+    if (perfilProv.privacidad != null) {
+      setState(() {
+        publicProfile = perfilProv.privacidad!['perfil_publico'] ?? true;
+        friendNotifs = perfilProv.privacidad!['notificaciones_amigos'] ?? true;
+        twoFA = perfilProv.privacidad!['dos_factor'] ?? false;
+        promoEmails = perfilProv.privacidad!['correos_promocionales'] ?? true;
+      });
+    }
+  }
 
   void _marcarCambio() {
     if (!_hasChanges) {
@@ -463,14 +487,34 @@ class _PrivacyCardState extends State<_PrivacyCard> {
   }
 
   Future<void> _guardarPrivacidad() async {
+    final perfilProv = context.read<PerfilProvider>();
     setState(() => _saving = true);
-    await Future.delayed(const Duration(milliseconds: 300));
+
+    final exito = await perfilProv.guardarPrivacidad(
+      perfilPublico: publicProfile,
+      mostrarBiblioteca: true, // Siempre mostrar biblioteca según el diseño
+      notificacionesAmigos: friendNotifs,
+      dosFactor: twoFA,
+      correosPromocionales: promoEmails,
+    );
+
     if (!mounted) return;
     setState(() {
       _saving = false;
-      _hasChanges = false;
+      if (exito) {
+        _hasChanges = false;
+      }
     });
-    showSteamToast(context, 'Preferencias guardadas', SteamColors.green);
+
+    if (exito) {
+      showSteamToast(context, 'Preferencias guardadas', SteamColors.green);
+    } else {
+      showSteamToast(
+        context,
+        perfilProv.error ?? 'No fue posible guardar las preferencias',
+        Colors.red,
+      );
+    }
   }
 
   @override
@@ -523,7 +567,9 @@ class _PrivacyCardState extends State<_PrivacyCard> {
             child: SteamButtonPrimary(
               label: _saving ? 'Guardando...' : 'Guardar ajustes',
               icon: Icons.save_outlined,
-              onTap: !_hasChanges || _saving ? (_) {} : (_) => _guardarPrivacidad(),
+              onTap: !_hasChanges || _saving
+                  ? (_) {}
+                  : (_) => _guardarPrivacidad(),
             ),
           ),
         ],
