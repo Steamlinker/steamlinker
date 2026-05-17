@@ -10,9 +10,25 @@ CREATE TABLE usuarios (
 	pais_usu VARCHAR(5),
 	repu_usu DECIMAL(3,2) DEFAULT 0.0,
 	totalrating_usu INTEGER DEFAULT 0,
-	tipo_usu VARCHAR(20) DEFAULT 'Registrado',
+	tipo_usu VARCHAR(20) DEFAULT 'usuario',
+	baneado_usu BOOLEAN DEFAULT FALSE,
+	motivo_ban TEXT,
+	fechaban_usu TIMESTAMP,
 	creadoen_usu TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE usuarios
+ADD COLUMN baneado_usu BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE usuarios
+ADD COLUMN motivo_ban TEXT;
+
+ALTER TABLE usuarios
+ADD COLUMN fechaban_usu TIMESTAMP;
+
+UPDATE usuarios
+SET tipo_usu = 'admin'
+WHERE email_usu = 'loco@gmail.com';
 
 CREATE TABLE perfiles_steam(
 	id_steperfil SERIAL PRIMARY KEY,

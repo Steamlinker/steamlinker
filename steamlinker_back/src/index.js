@@ -6,6 +6,7 @@ require('./db');
 
 const express = require('express');
 const cors = require('cors');
+const adminRoutes = require('./routes/admin');
 
 const { router: authRoutes } = require('./routes/auth');
 const perfilRoutes = require('./routes/perfil');
@@ -36,7 +37,7 @@ app.use('/chat', chatRoutes);
 app.use('/calificaciones', calificacionesRoutes);
 app.use('/reportes', reportesRoutes);
 app.use('/amistad', amistadRoutes);
-
+app.use('/api/admin', adminRoutes);
 // Ruta de salud
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'Steamlinker API corriendo' });
