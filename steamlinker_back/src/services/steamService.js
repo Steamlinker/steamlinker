@@ -139,9 +139,19 @@ async function getCommonGames(steamidA, steamidB) {
     getOwnedGames(steamidB),
   ]);
 
-  const setB = new Set(gamesB.map((g) => g.appid));
+  const mapB = new Map(gamesB.map((g) => [g.appid, g.hoursPlayed]));
 
-  const commonGames = gamesA.filter((g) => setB.has(g.appid));
+  const commonGames = gamesA
+    .filter((g) => mapB.has(g.appid))
+    .map((g) => ({
+      appid:        g.appid,
+      name:         g.name,
+      hoursPlayed:  g.hoursPlayed,
+      hoursPlayedB: mapB.get(g.appid) ?? 0,
+      headerImg:    g.headerImg,
+      capsuleImg:   g.capsuleImg,
+    }))
+    .sort((a, b) => (b.hoursPlayed + b.hoursPlayedB) - (a.hoursPlayed + a.hoursPlayedB));
 
   return {
     commonGames,

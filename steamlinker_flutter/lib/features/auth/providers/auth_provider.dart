@@ -63,7 +63,7 @@ class AuthProvider extends ChangeNotifier {
       return true;
 
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? e.message ?? 'Error al registrarse';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al registrarse');
       _cargando = false;
       notifyListeners();
       return false;
@@ -96,18 +96,20 @@ class AuthProvider extends ChangeNotifier {
       return true;
 
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? e.message ?? 'Error al iniciar sesion';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al iniciar sesion');
       _cargando = false;
       notifyListeners();
       return false;
     }
   }
 
-  // Cerrar sesion
+  // Cerrar sesion (limpia token y estado; usar confirmarYCerrarSesion en UI para ir al login)
   Future<void> logout() async {
     await TokenStorage.eliminarToken();
     _usuario = null;
     _autenticado = false;
+    _error = null;
+    _cargando = false;
     notifyListeners();
   }
 
@@ -129,7 +131,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? e.message ?? 'Error al cambiar contrasena';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cambiar contrasena');
       _cargando = false;
       notifyListeners();
       return false;
@@ -148,7 +150,7 @@ class AuthProvider extends ChangeNotifier {
       _cargando = false;
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? e.message ?? 'Error al eliminar cuenta';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al eliminar cuenta');
       _cargando = false;
       notifyListeners();
       return false;

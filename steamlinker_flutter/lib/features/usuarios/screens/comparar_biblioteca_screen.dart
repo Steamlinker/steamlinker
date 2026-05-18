@@ -14,6 +14,8 @@ class CompararBibliotecaScreen extends StatelessWidget {
     final totalB = resultado['totalB'] ?? 0;
     final commonCount = resultado['commonCount'] ?? comunes.length;
     final otro = resultado['otro_username'] ?? 'Usuario';
+    final fuente = resultado['fuente']?.toString() ?? 'local';
+    final esSteam = fuente == 'steam';
     final pctA = totalA > 0 ? ((commonCount / totalA) * 100).round() : 0;
     final pctB = totalB > 0 ? ((commonCount / totalB) * 100).round() : 0;
 
@@ -40,6 +42,22 @@ class CompararBibliotecaScreen extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (esSteam ? SteamColors.teal : SteamColors.blue).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    esSteam ? 'Datos en vivo · Steam API' : 'Datos del perfil',
+                    style: TextStyle(
+                      color: esSteam ? SteamColors.teal : SteamColors.blue,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Text(
                   '$commonCount juegos en común',
@@ -61,13 +79,15 @@ class CompararBibliotecaScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           if (comunes.isEmpty)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No hay juegos en común en los perfiles.\nAgrega más juegos o importa desde Steam.',
+                  esSteam
+                      ? 'No hay juegos en común según Steam.\nComprueba que ambos perfiles de Steam sean públicos.'
+                      : 'No hay juegos en común en los perfiles.\nAgrega más juegos o vincula Steam para comparar en vivo.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: SteamColors.textSec),
+                  style: const TextStyle(color: SteamColors.textSec),
                 ),
               ),
             )

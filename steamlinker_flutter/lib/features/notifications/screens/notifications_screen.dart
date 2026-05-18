@@ -112,6 +112,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ),
           IconButton(
             icon: const Icon(Icons.refresh, color: SteamColors.blue),
+            tooltip: 'Actualizar',
             onPressed: _cargarFiltroActual,
           ),
         ],

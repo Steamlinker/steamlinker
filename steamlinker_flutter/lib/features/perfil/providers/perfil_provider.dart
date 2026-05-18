@@ -67,9 +67,15 @@ class PerfilProvider extends ChangeNotifier {
             .map((j) => _mapJuego(Map<String, dynamic>.from(j)))
             .toList(),
         'steam': raw['steam'],
+        'steam_vinculado': raw['steam_vinculado'] == true || raw['steam'] != null,
+        'biblioteca_oculta': raw['biblioteca_oculta'] == true,
       };
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar perfil';
+      if (e.response?.statusCode == 403) {
+        _error = ApiClient.errorMessage(e, fallback: 'Perfil no disponible');
+      } else {
+        _error = ApiClient.errorMessage(e, fallback: 'Error al cargar perfil');
+      }
       return null;
     }
   }
@@ -79,7 +85,7 @@ class PerfilProvider extends ChangeNotifier {
       final respuesta = await ApiClient.dio.get('/perfil/comparar/$otroUserId');
       return Map<String, dynamic>.from(respuesta.data);
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al comparar bibliotecas';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al comparar bibliotecas');
       notifyListeners();
       return null;
     }
@@ -108,7 +114,7 @@ class PerfilProvider extends ChangeNotifier {
       _descubrirCargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al descubrir usuarios';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al descubrir usuarios');
       _descubrirCargando = false;
       notifyListeners();
     }
@@ -129,7 +135,7 @@ class PerfilProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar perfil';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar perfil');
       _cargando = false;
       notifyListeners();
     }
@@ -147,7 +153,7 @@ class PerfilProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al editar perfil';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al editar perfil');
       notifyListeners();
       return false;
     }
@@ -178,7 +184,7 @@ class PerfilProvider extends ChangeNotifier {
       }
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al vincular Steam';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al vincular Steam');
       notifyListeners();
       return false;
     }
@@ -192,7 +198,7 @@ class PerfilProvider extends ChangeNotifier {
       }
       return respuesta.data['mensaje'] as String?;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al importar juegos de Steam';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al importar juegos de Steam');
       notifyListeners();
       return null;
     }
@@ -206,7 +212,7 @@ class PerfilProvider extends ChangeNotifier {
       }
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al desvincular Steam';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al desvincular Steam');
       notifyListeners();
       return false;
     }
@@ -221,7 +227,7 @@ class PerfilProvider extends ChangeNotifier {
       }
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al agregar juego';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al agregar juego');
       notifyListeners();
       return false;
     }
@@ -250,7 +256,7 @@ class PerfilProvider extends ChangeNotifier {
       }
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al actualizar juego';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al actualizar juego');
       notifyListeners();
       return false;
     }
@@ -264,7 +270,7 @@ class PerfilProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al eliminar juego';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al eliminar juego');
       notifyListeners();
       return false;
     }
@@ -294,7 +300,7 @@ class PerfilProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al guardar privacidad';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al guardar privacidad');
       notifyListeners();
       return false;
     }

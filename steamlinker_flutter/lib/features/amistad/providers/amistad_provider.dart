@@ -24,7 +24,7 @@ class AmistadProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar solicitudes';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar solicitudes');
       _cargando = false;
       notifyListeners();
     }
@@ -41,7 +41,7 @@ class AmistadProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar amigos';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar amigos');
       _cargando = false;
       notifyListeners();
     }
@@ -62,7 +62,7 @@ class AmistadProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar amistades';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar amistades');
       _cargando = false;
       notifyListeners();
     }
@@ -72,9 +72,10 @@ class AmistadProvider extends ChangeNotifier {
     _error = null;
     try {
       await ApiClient.dio.post('/amistad/enviar', data: {'id_receptor': idReceptor});
+      await cargarTodo();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al enviar solicitud';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al enviar solicitud');
       notifyListeners();
       return false;
     }
@@ -87,7 +88,7 @@ class AmistadProvider extends ChangeNotifier {
       await cargarTodo();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al responder solicitud';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al responder solicitud');
       notifyListeners();
       return false;
     }

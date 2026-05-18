@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/pais_util.dart';
+import '../../../core/utils/relacion_helper.dart';
 import '../../../theme/colors.dart';
+import '../../../widgets/relacion_status_chip.dart';
 import '../../../widgets/calificar_dialog.dart';
+import '../../../widgets/reportar_usuario_dialog.dart';
 import '../../../widgets/steam_app_bar.dart';
+import '../../calificaciones/screens/resenas_usuario_screen.dart';
 import '../../../widgets/steam_buttons.dart';
 import '../../../widgets/steam_card.dart';
 import '../../../widgets/steam_toast.dart';
@@ -38,17 +42,37 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
   String? _error;
   Map<String, dynamic>? _perfil;
   List<dynamic> _juegos = [];
+  bool _bibliotecaOculta = false;
+  bool _otroSteamVinculado = false;
+  bool _yoSteamVinculado = false;
   bool _enviandoMatch = false;
   bool _enviandoAmistad = false;
   bool _comparando = false;
+  RelacionResumen? _relacion;
+  bool _cargandoRelacion = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MatchesProvider>().cargarTodo();
+      context.read<AmistadProvider>().cargarTodo();
+      _cargarRelacion();
     });
     _cargar();
+  }
+
+  Future<void> _cargarRelacion() async {
+    final miId = context.read<AuthProvider>().usuario?['id'];
+    if (miId == null || miId == widget.userId) return;
+
+    setState(() => _cargandoRelacion = true);
+    final data = await context.read<MatchesProvider>().consultarEstado(widget.userId);
+    if (!mounted) return;
+    setState(() {
+      _cargandoRelacion = false;
+      _relacion = data != null ? RelacionResumen.desdeApi(data) : null;
+    });
   }
 
   Future<void> _cargar() async {
@@ -56,20 +80,63 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
       _cargando = true;
       _error = null;
     });
-    final data = await context.read<PerfilProvider>().cargarPerfilAjeno(widget.userId);
+    final perfilProv = context.read<PerfilProvider>();
+    final auth = context.read<AuthProvider>();
+    final data = await perfilProv.cargarPerfilAjeno(widget.userId);
     if (!mounted) return;
     if (data == null) {
       setState(() {
         _cargando = false;
-        _error = context.read<PerfilProvider>().error ?? 'No se pudo cargar';
+        _error = perfilProv.error ?? 'No se pudo cargar';
       });
       return;
     }
+
+    var yoSteam = false;
+    final miId = auth.usuario?['id'];
+    if (miId != null) {
+      if (perfilProv.perfil == null) {
+        await perfilProv.cargarPerfil(miId);
+      }
+      yoSteam = perfilProv.perfil?['steam'] != null;
+    }
+
+    if (!mounted) return;
     setState(() {
       _perfil = data['perfil'] as Map<String, dynamic>;
       _juegos = data['juegos'] as List<dynamic>;
+      _bibliotecaOculta = data['biblioteca_oculta'] == true;
+      _otroSteamVinculado = data['steam_vinculado'] == true;
+      _yoSteamVinculado = yoSteam;
       _cargando = false;
     });
+  }
+
+  bool get _puedeComparar =>
+      !_bibliotecaOculta || (_yoSteamVinculado && _otroSteamVinculado);
+
+  Future<void> _reportarUsuario() async {
+    final nombre = _perfil?['username']?.toString() ?? 'Usuario';
+    final enviado = await mostrarReportarUsuarioDialog(
+      context,
+      nombreUsuario: nombre,
+      idReportado: widget.userId,
+    );
+    if (enviado == true && mounted) {
+      showSteamToast(context, 'Reporte enviado', SteamColors.green);
+    }
+  }
+
+  void _verResenas() {
+    final nombre = _perfil?['username']?.toString() ?? 'Usuario';
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ResenasUsuarioScreen(
+          userId: widget.userId,
+          username: nombre,
+        ),
+      ),
+    );
   }
 
   Future<void> _enviarMatch() async {
@@ -83,6 +150,7 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
     if (exito) {
       showSteamToast(context, 'Solicitud de match enviada', SteamColors.green);
       context.read<NotificacionesProvider>().cargarContador();
+      await _cargarRelacion();
     } else {
       showSteamToast(
         context,
@@ -100,6 +168,7 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
     if (exito) {
       showSteamToast(context, 'Solicitud de amistad enviada', SteamColors.green);
       context.read<NotificacionesProvider>().cargarContador();
+      await _cargarRelacion();
     } else {
       showSteamToast(
         context,
@@ -200,11 +269,14 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
   }
 
   Map<String, dynamic>? _matchAceptadoConUsuario(MatchesProvider matches, int? miId) {
-    if (miId == null) return null;
+    if (miId == null || _relacion?.matchAceptado != true) return null;
+    final idMatch = _relacion?.idMatch;
     for (final m in [...matches.recibidos, ...matches.enviados]) {
-      if (m['estado_match'] != 'Aceptada') continue;
-      final otro = m['id_solicitante'] == miId ? m['id_receptor'] : m['id_solicitante'];
-      if (otro == widget.userId) return Map<String, dynamic>.from(m as Map);
+      final map = Map<String, dynamic>.from(m as Map);
+      if (map['estado_match'] != 'Aceptada') continue;
+      if (idMatch != null && map['id_match'] == idMatch) return map;
+      final otro = map['id_solicitante'] == miId ? map['id_receptor'] : map['id_solicitante'];
+      if (otro == widget.userId) return map;
     }
     return null;
   }
@@ -216,10 +288,30 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
     final miId = auth.usuario?['id'];
     final esYo = miId == widget.userId;
     final matchAceptado = _matchAceptadoConUsuario(matchesProv, miId);
+    final puedeMatch = _relacion?.puedeEnviarMatch ?? true;
+    final puedeAmistad = _relacion?.puedeEnviarAmistad ?? true;
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'PERFIL'),
+      appBar: SteamAppBar(
+        title: 'PERFIL',
+        actions: esYo
+            ? null
+            : [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: SteamColors.muted),
+                  color: SteamColors.bgPanel,
+                  onSelected: (v) {
+                    if (v == 'reportar') _reportarUsuario();
+                    if (v == 'resenas') _verResenas();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'resenas', child: Text('Ver reseñas')),
+                    PopupMenuItem(value: 'reportar', child: Text('Reportar usuario')),
+                  ],
+                ),
+              ],
+      ),
       body: _cargando
           ? const Center(
               child: CircularProgressIndicator(
@@ -282,31 +374,82 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
                             ],
                           ),
                           if (!esYo) ...[
-                            const SizedBox(height: 16),
-                            SteamButtonPrimary(
-                              label: _enviandoMatch ? 'Enviando...' : 'Enviar match',
-                              icon: Icons.handshake_outlined,
-                              onTap: _enviandoMatch ? null : (_) => _enviarMatch(),
-                            ),
+                            const SizedBox(height: 12),
+                            if (_cargandoRelacion)
+                              const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            else ...[
+                              RelacionStatusRow(relacion: _relacion),
+                              const SizedBox(height: 12),
+                            ],
+                            if (puedeMatch)
+                              SteamButtonPrimary(
+                                label: _enviandoMatch ? 'Enviando...' : 'Enviar match',
+                                icon: Icons.handshake_outlined,
+                                onTap: _enviandoMatch ? null : (_) => _enviarMatch(),
+                              )
+                            else if (_relacion?.matchPendiente == true)
+                              SteamButtonOutline(
+                                label: _relacion!.matchSoySolicitante
+                                    ? 'Match pendiente'
+                                    : 'Match recibido',
+                                onTap: null,
+                              ),
+                            if (puedeMatch || _relacion?.matchPendiente == true)
+                              const SizedBox(height: 10),
+                            if (puedeAmistad)
+                              SteamButtonOutline(
+                                label: _enviandoAmistad ? 'Enviando...' : 'Agregar amigo',
+                                onTap: _enviandoAmistad ? null : _enviarAmistad,
+                              )
+                            else if (_relacion?.amistadPendiente == true)
+                              SteamButtonOutline(
+                                label: _relacion!.amistadSoySolicitante
+                                    ? 'Amistad pendiente'
+                                    : 'Solicitud de amistad recibida',
+                                onTap: null,
+                              )
+                            else if (_relacion?.sonAmigos == true)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 10),
+                                child: RelacionStatusChip(
+                                  relacion: RelacionResumen(amistadEstado: 'Aceptada'),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                            if (_puedeComparar)
+                              SteamButtonOutline(
+                                label: _comparando
+                                    ? 'Comparando...'
+                                    : 'Comparar bibliotecas',
+                                onTap: _comparando ? null : _compararBiblioteca,
+                              )
+                            else
+                              const Text(
+                                'Comparación no disponible: este usuario ocultó su biblioteca. '
+                                'Ambos deben tener Steam vinculado para comparar en vivo.',
+                                style: TextStyle(color: SteamColors.textSec, fontSize: 11),
+                              ),
                             const SizedBox(height: 10),
                             SteamButtonOutline(
-                              label: _enviandoAmistad ? 'Enviando...' : 'Agregar amigo',
-                              onTap: _enviandoAmistad ? null : _enviarAmistad,
+                              label: 'Ver reseñas',
+                              onTap: _verResenas,
                             ),
-                            const SizedBox(height: 10),
-                            SteamButtonOutline(
-                              label: _comparando
-                                  ? 'Comparando...'
-                                  : 'Comparar bibliotecas',
-                              onTap: _comparando ? null : _compararBiblioteca,
-                            ),
-                            if (matchAceptado != null) ...[
+                            if (_relacion?.matchAceptado == true ||
+                                _relacion?.sonAmigos == true) ...[
                               const SizedBox(height: 10),
                               SteamButtonPrimary(
                                 label: 'Abrir chat',
                                 icon: Icons.chat_bubble_outline,
                                 onTap: (_) => _abrirChat(),
                               ),
+                            ],
+                            if (matchAceptado != null) ...[
                               const SizedBox(height: 10),
                               SteamButtonOutline(
                                 label: 'Calificar usuario',
@@ -320,8 +463,15 @@ class _UsuarioDetalleScreenState extends State<UsuarioDetalleScreen> {
                     const SizedBox(height: 16),
                     SteamCard(
                       icon: Icons.videogame_asset_outlined,
-                      title: 'Biblioteca (${_juegos.length})',
-                      child: _juegos.isEmpty
+                      title: _bibliotecaOculta
+                          ? 'Biblioteca oculta'
+                          : 'Biblioteca (${_juegos.length})',
+                      child: _bibliotecaOculta
+                          ? const Text(
+                              'Este usuario ocultó su biblioteca en la configuración de privacidad.',
+                              style: TextStyle(color: SteamColors.textSec, fontSize: 12),
+                            )
+                          : _juegos.isEmpty
                           ? const Text(
                               'Sin juegos visibles en el perfil.',
                               style: TextStyle(color: SteamColors.textSec, fontSize: 12),

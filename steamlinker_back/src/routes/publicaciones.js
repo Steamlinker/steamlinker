@@ -4,6 +4,7 @@
 const express = require('express');
 const pool = require('../db');
 const { verificarToken } = require('./auth');
+const { crearNotificacion, usernameDe } = require('../services/notificacionesService');
 
 const router = express.Router();
 
@@ -119,6 +120,136 @@ router.get('/buscar', async (req, res) => {
 
         res.json({ publicaciones, total: publicaciones.length });
 
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /publicaciones/:id/comentarios
+router.get('/:id/comentarios', verificarToken, async (req, res) => {
+    const idPubli = parseInt(req.params.id, 10);
+    if (!idPubli || Number.isNaN(idPubli)) {
+        return res.status(400).json({ error: 'ID de publicación inválido' });
+    }
+
+    try {
+        const resultado = await pool.query(
+            `SELECT c.*, u.username_usu
+             FROM comentario_publicacion c
+             JOIN usuarios u ON c.id_usu = u.id_usu
+             WHERE c.id_publi = $1
+             ORDER BY c.creadoen_coment ASC`,
+            [idPubli]
+        );
+
+        res.json({ comentarios: resultado.rows, total: resultado.rows.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /publicaciones/:id/comentarios
+router.post('/:id/comentarios', verificarToken, async (req, res) => {
+    const idPubli = parseInt(req.params.id, 10);
+    const { texto, id_padre } = req.body;
+
+    if (!idPubli || Number.isNaN(idPubli)) {
+        return res.status(400).json({ error: 'ID de publicación inválido' });
+    }
+
+    const textoLimpio = typeof texto === 'string' ? texto.trim() : '';
+    if (textoLimpio.length < 2) {
+        return res.status(400).json({ error: 'El comentario es demasiado corto' });
+    }
+    if (textoLimpio.length > 2000) {
+        return res.status(400).json({ error: 'El comentario es demasiado largo' });
+    }
+
+    try {
+        const pub = await pool.query(
+            `SELECT id_publi, id_usu, titulo_publi, estado_publi
+             FROM publicaciones WHERE id_publi = $1`,
+            [idPubli]
+        );
+
+        if (pub.rows.length === 0) {
+            return res.status(404).json({ error: 'Publicación no encontrada' });
+        }
+
+        if (pub.rows[0].estado_publi === false) {
+            return res.status(400).json({ error: 'La publicación está cerrada' });
+        }
+
+        let idPadre = null;
+        if (id_padre != null) {
+            idPadre = parseInt(id_padre, 10);
+            const padre = await pool.query(
+                `SELECT id_coment, id_publi, id_usu FROM comentario_publicacion
+                 WHERE id_coment = $1 AND id_publi = $2`,
+                [idPadre, idPubli]
+            );
+            if (padre.rows.length === 0) {
+                return res.status(400).json({ error: 'Comentario padre no válido' });
+            }
+        }
+
+        const insertado = await pool.query(
+            `INSERT INTO comentario_publicacion (id_publi, id_usu, id_padre, texto_coment)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [idPubli, req.usuario.id, idPadre, textoLimpio]
+        );
+
+        const comentario = insertado.rows[0];
+        const autorPubli = pub.rows[0].id_usu;
+        const solicitante = await usernameDe(req.usuario.id);
+
+        try {
+            if (autorPubli !== req.usuario.id) {
+                await crearNotificacion({
+                    idUsuario: autorPubli,
+                    tipo: 'comment',
+                    titulo: 'Nuevo comentario',
+                    cuerpo: `${solicitante} comentó en "${pub.rows[0].titulo_publi}".`,
+                    refTipo: 'publicacion',
+                    refId: idPubli,
+                    avatar: solicitante[0]?.toUpperCase() || 'C',
+                });
+            }
+
+            if (idPadre) {
+                const padreRow = await pool.query(
+                    'SELECT id_usu FROM comentario_publicacion WHERE id_coment = $1',
+                    [idPadre]
+                );
+                const autorPadre = padreRow.rows[0]?.id_usu;
+                if (
+                    autorPadre &&
+                    autorPadre !== req.usuario.id &&
+                    autorPadre !== autorPubli
+                ) {
+                    await crearNotificacion({
+                        idUsuario: autorPadre,
+                        tipo: 'reply',
+                        titulo: 'Respuesta a tu comentario',
+                        cuerpo: `${solicitante} respondió en una publicación.`,
+                        refTipo: 'publicacion',
+                        refId: idPubli,
+                        avatar: solicitante[0]?.toUpperCase() || 'R',
+                    });
+                }
+            }
+        } catch (_) { /* no bloquear */ }
+
+        const conUsuario = await pool.query(
+            `SELECT c.*, u.username_usu
+             FROM comentario_publicacion c
+             JOIN usuarios u ON c.id_usu = u.id_usu
+             WHERE c.id_coment = $1`,
+            [comentario.id_coment]
+        );
+
+        res.status(201).json(conUsuario.rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

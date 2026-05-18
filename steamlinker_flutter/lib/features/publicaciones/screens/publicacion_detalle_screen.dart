@@ -1,0 +1,782 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/constants/pais_util.dart';
+import '../../../core/constants/publicacion_constants.dart';
+import '../../../core/utils/relacion_helper.dart';
+import '../../../theme/colors.dart';
+import '../../../widgets/relacion_status_chip.dart' show RelacionStatusChip, RelacionStatusRow;
+import '../../../widgets/steam_app_bar.dart';
+import '../../../widgets/steam_buttons.dart';
+import '../../../widgets/reportar_usuario_dialog.dart';
+import '../../../widgets/steam_toast.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../chat/providers/chat_provider.dart';
+import '../../chat/screens/chat_conversation_screen.dart';
+import '../../matches/providers/matches_provider.dart';
+import '../../notifications/providers/notificaciones_provider.dart';
+import '../../usuarios/screens/usuario_detalle_screen.dart';
+import '../providers/publicaciones_provider.dart';
+
+class PublicacionDetalleScreen extends StatefulWidget {
+  final int idPubli;
+
+  const PublicacionDetalleScreen({super.key, required this.idPubli});
+
+  @override
+  State<PublicacionDetalleScreen> createState() => _PublicacionDetalleScreenState();
+}
+
+class _PublicacionDetalleScreenState extends State<PublicacionDetalleScreen> {
+  RelacionResumen? _relacion;
+  bool _cargandoRelacion = false;
+  bool _enviandoMatch = false;
+  final _comentarioController = TextEditingController();
+  int? _respondiendoAId;
+  String? _respondiendoAUsuario;
+
+  @override
+  void dispose() {
+    _comentarioController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _cargar());
+  }
+
+  Future<void> _cargar() async {
+    final prov = context.read<PublicacionesProvider>();
+    await prov.cargarPorId(widget.idPubli);
+    if (!mounted) return;
+    await Future.wait([
+      _cargarRelacion(),
+      prov.cargarComentarios(widget.idPubli),
+    ]);
+  }
+
+  Future<void> _enviarComentario() async {
+    final texto = _comentarioController.text.trim();
+    if (texto.length < 2) {
+      showSteamToast(context, 'Escribe un comentario', SteamColors.orange);
+      return;
+    }
+
+    final prov = context.read<PublicacionesProvider>();
+    final ok = await prov.enviarComentario(
+      widget.idPubli,
+      texto,
+      idPadre: _respondiendoAId,
+    );
+    if (!mounted) return;
+
+    if (ok) {
+      _comentarioController.clear();
+      setState(() {
+        _respondiendoAId = null;
+        _respondiendoAUsuario = null;
+      });
+      context.read<NotificacionesProvider>().cargarContador();
+    } else {
+      showSteamToast(context, prov.error ?? 'No se pudo comentar', Colors.red);
+    }
+  }
+
+  Future<void> _cargarRelacion() async {
+    final pub = context.read<PublicacionesProvider>().detalle;
+    final autorId = pub?['id_usu'] as int?;
+    final miId = context.read<AuthProvider>().usuario?['id'] as int?;
+    if (autorId == null || miId == null || autorId == miId) return;
+
+    setState(() => _cargandoRelacion = true);
+    final data = await context.read<MatchesProvider>().consultarEstado(autorId);
+    if (!mounted) return;
+    setState(() {
+      _cargandoRelacion = false;
+      _relacion = data != null ? RelacionResumen.desdeApi(data) : null;
+    });
+  }
+
+  Future<void> _enviarMatch() async {
+    final pub = context.read<PublicacionesProvider>().detalle;
+    final autorId = pub?['id_usu'] as int?;
+    if (autorId == null) return;
+
+    setState(() => _enviandoMatch = true);
+    final exito = await context.read<MatchesProvider>().enviar(
+      autorId,
+      idPubli: widget.idPubli,
+    );
+    if (!mounted) return;
+    setState(() => _enviandoMatch = false);
+
+    if (exito) {
+      showSteamToast(context, 'Solicitud de match enviada', SteamColors.green);
+      context.read<NotificacionesProvider>().cargarContador();
+      await _cargarRelacion();
+    } else {
+      showSteamToast(
+        context,
+        context.read<MatchesProvider>().error ?? 'No se pudo enviar',
+        Colors.red,
+      );
+    }
+  }
+
+  Future<void> _abrirChat(int autorId, String nombre) async {
+    final chatProv = context.read<ChatProvider>();
+    await chatProv.cargarConversaciones();
+
+    int? chatId;
+    for (final c in chatProv.conversaciones) {
+      final chat = Map<String, dynamic>.from(c as Map);
+      if (ChatProvider.otroUserId(chat) == autorId) {
+        chatId = chat['id_chat'] as int?;
+        break;
+      }
+    }
+
+    chatId ??= await chatProv.iniciarChat(autorId);
+    if (!mounted) return;
+    if (chatId == null) {
+      showSteamToast(
+        context,
+        chatProv.error ?? 'No se pudo abrir el chat',
+        Colors.red,
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChatConversationScreen(
+          chatId: chatId!,
+          otroNombre: nombre,
+          otroUserId: autorId,
+        ),
+      ),
+    );
+    await _cargarRelacion();
+  }
+
+  void _irPerfil(Map<String, dynamic> pub) {
+    final autorId = pub['id_usu'] as int?;
+    if (autorId == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UsuarioDetalleScreen(
+          userId: autorId,
+          idPubli: widget.idPubli,
+          tituloPublicacion: pub['titulo_publi'] as String?,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prov = context.watch<PublicacionesProvider>();
+    final auth = context.watch<AuthProvider>();
+    final pub = prov.detalle;
+    final miId = auth.usuario?['id'];
+    final esMia = pub != null && miId == pub['id_usu'];
+    final autorId = pub?['id_usu'] as int?;
+
+    return Scaffold(
+      backgroundColor: SteamColors.bgDeep,
+      appBar: SteamAppBar(
+        title: 'PUBLICACIÓN',
+        actions: esMia || autorId == null
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.flag_outlined, color: SteamColors.muted),
+                  tooltip: 'Reportar autor',
+                  onPressed: () async {
+                    final nombre = pub?['username_usu']?.toString() ?? 'Usuario';
+                    final ok = await mostrarReportarUsuarioDialog(
+                      context,
+                      nombreUsuario: nombre,
+                      idReportado: autorId,
+                    );
+                    if (ok == true && context.mounted) {
+                      showSteamToast(context, 'Reporte enviado', SteamColors.green);
+                    }
+                  },
+                ),
+              ],
+      ),
+      body: prov.cargandoDetalle
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(SteamColors.blue),
+              ),
+            )
+          : prov.error != null && pub == null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      prov.error!,
+                      style: const TextStyle(color: SteamColors.light),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : pub == null
+                  ? const SizedBox.shrink()
+                  : RefreshIndicator(
+                      color: SteamColors.blue,
+                      backgroundColor: SteamColors.bgDeep,
+                      onRefresh: _cargar,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: SteamColors.blue.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  PublicacionConstants.etiquetaTipo(pub['tipo_publi']),
+                                  style: const TextStyle(
+                                    color: SteamColors.blue,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (_cargandoRelacion)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              else
+                                RelacionStatusChip(relacion: _relacion),
+                              const Spacer(),
+                              if (pub['estado_publi'] == false)
+                                const _EstadoCerrada(),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            pub['titulo_publi'] ?? '',
+                            style: const TextStyle(
+                              color: SteamColors.light,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            pub['descrip_publi'] ?? 'Sin descripción',
+                            style: const TextStyle(
+                              color: SteamColors.textSec,
+                              fontSize: 14,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _AutorSection(
+                            pub: pub,
+                            onTapPerfil: () => _irPerfil(pub),
+                          ),
+                          const SizedBox(height: 16),
+                          if (!esMia && autorId != null) ...[
+                            RelacionStatusRow(relacion: _relacion),
+                            const SizedBox(height: 12),
+                            if (_relacion?.matchAceptado == true ||
+                                _relacion?.sonAmigos == true)
+                              SteamButtonPrimary(
+                                label: 'Abrir chat',
+                                icon: Icons.chat_bubble_outline,
+                                onTap: (_) => _abrirChat(
+                                  autorId,
+                                  pub['username_usu']?.toString() ?? 'Usuario',
+                                ),
+                              )
+                            else if (_relacion?.puedeEnviarMatch == true)
+                              SteamButtonPrimary(
+                                label: _enviandoMatch ? 'Enviando...' : 'Enviar match',
+                                icon: Icons.handshake_outlined,
+                                onTap: _enviandoMatch ? null : (_) => _enviarMatch(),
+                              )
+                            else if (_relacion?.matchPendiente == true)
+                              SteamButtonOutline(
+                                label: _relacion!.matchSoySolicitante
+                                    ? 'Match pendiente'
+                                    : 'Ver solicitudes',
+                                onTap: _relacion!.matchSoySolicitante
+                                    ? null
+                                    : () => Navigator.pop(context),
+                              ),
+                            const SizedBox(height: 10),
+                            SteamButtonOutline(
+                              label: 'Ver perfil completo',
+                              onTap: () => _irPerfil(pub),
+                            ),
+                          ],
+                          if (esMia) ...[
+                            SteamButtonOutline(
+                              label: 'Cerrar publicación',
+                              onTap: () async {
+                                final ok = await prov.cerrar(widget.idPubli);
+                                if (!context.mounted) return;
+                                if (ok) {
+                                  Navigator.pop(context, true);
+                                } else if (prov.error != null) {
+                                  showSteamToast(context, prov.error!, Colors.red);
+                                }
+                              },
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Juegos de la publicación',
+                            style: TextStyle(
+                              color: SteamColors.light,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _JuegosLista(juegos: (pub['juegos'] as List<dynamic>?) ?? []),
+                          const SizedBox(height: 24),
+                          _ComentariosSection(
+                            idPubli: widget.idPubli,
+                            comentarioController: _comentarioController,
+                            respondiendoAId: _respondiendoAId,
+                            respondiendoAUsuario: _respondiendoAUsuario,
+                            onCancelarRespuesta: () => setState(() {
+                              _respondiendoAId = null;
+                              _respondiendoAUsuario = null;
+                            }),
+                            onResponder: (id, usuario) => setState(() {
+                              _respondiendoAId = id;
+                              _respondiendoAUsuario = usuario;
+                            }),
+                            onEnviar: _enviarComentario,
+                          ),
+                        ],
+                      ),
+                    ),
+    );
+  }
+}
+
+class _ComentariosSection extends StatelessWidget {
+  final int idPubli;
+  final TextEditingController comentarioController;
+  final int? respondiendoAId;
+  final String? respondiendoAUsuario;
+  final VoidCallback onCancelarRespuesta;
+  final void Function(int id, String usuario) onResponder;
+  final VoidCallback onEnviar;
+
+  const _ComentariosSection({
+    required this.idPubli,
+    required this.comentarioController,
+    required this.respondiendoAId,
+    required this.respondiendoAUsuario,
+    required this.onCancelarRespuesta,
+    required this.onResponder,
+    required this.onEnviar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final prov = context.watch<PublicacionesProvider>();
+    final miId = context.watch<AuthProvider>().usuario?['id'];
+
+    final raices = prov.comentarios.where((c) {
+      final m = Map<String, dynamic>.from(c as Map);
+      return m['id_padre'] == null;
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Comentarios',
+              style: TextStyle(
+                color: SteamColors.light,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '(${prov.comentarios.length})',
+              style: const TextStyle(color: SteamColors.muted, fontSize: 13),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (respondiendoAUsuario != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: SteamColors.bgCard,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Respondiendo a $respondiendoAUsuario',
+                    style: const TextStyle(color: SteamColors.blue, fontSize: 12),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: SteamColors.muted),
+                  tooltip: 'Cancelar respuesta',
+                  onPressed: onCancelarRespuesta,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: comentarioController,
+                maxLines: 3,
+                minLines: 1,
+                style: const TextStyle(color: SteamColors.light, fontSize: 13),
+                decoration: const InputDecoration(
+                  hintText: 'Escribe un comentario...',
+                  hintStyle: TextStyle(color: SteamColors.muted),
+                  filled: true,
+                  fillColor: SteamColors.bgInput,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SteamButtonPrimary(
+              label: prov.enviandoComentario ? '...' : 'Enviar',
+              icon: Icons.send_rounded,
+              fullWidth: false,
+              compact: true,
+              onTap: prov.enviandoComentario ? null : (_) => onEnviar(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (prov.cargandoComentarios)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else if (raices.isEmpty)
+          const Text(
+            'Sé el primero en comentar.',
+            style: TextStyle(color: SteamColors.textSec, fontSize: 13),
+          )
+        else
+          ...raices.map((c) {
+            final coment = Map<String, dynamic>.from(c as Map);
+            final respuestas = prov.comentarios.where((r) {
+              final m = Map<String, dynamic>.from(r as Map);
+              return m['id_padre'] == coment['id_coment'];
+            }).toList();
+
+            return _ComentarioTile(
+              comentario: coment,
+              respuestas: respuestas,
+              miId: miId,
+              onResponder: onResponder,
+            );
+          }),
+      ],
+    );
+  }
+}
+
+class _ComentarioTile extends StatelessWidget {
+  final Map<String, dynamic> comentario;
+  final List<dynamic> respuestas;
+  final int? miId;
+  final void Function(int id, String usuario) onResponder;
+
+  const _ComentarioTile({
+    required this.comentario,
+    required this.respuestas,
+    required this.miId,
+    required this.onResponder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final id = comentario['id_coment'] as int;
+    final autor = comentario['username_usu']?.toString() ?? 'Usuario';
+    final esMio = miId != null && comentario['id_usu'] == miId;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ComentarioBubble(
+            autor: autor,
+            texto: comentario['texto_coment']?.toString() ?? '',
+            esMio: esMio,
+            onResponder: () => onResponder(id, autor),
+          ),
+          ...respuestas.map((r) {
+            final resp = Map<String, dynamic>.from(r as Map);
+            final autorR = resp['username_usu']?.toString() ?? 'Usuario';
+            final esMioR = miId != null && resp['id_usu'] == miId;
+            return Padding(
+              padding: const EdgeInsets.only(left: 20, top: 8),
+              child: _ComentarioBubble(
+                autor: autorR,
+                texto: resp['texto_coment']?.toString() ?? '',
+                esMio: esMioR,
+                esRespuesta: true,
+                onResponder: () => onResponder(resp['id_coment'] as int, autorR),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComentarioBubble extends StatelessWidget {
+  final String autor;
+  final String texto;
+  final bool esMio;
+  final bool esRespuesta;
+  final VoidCallback onResponder;
+
+  const _ComentarioBubble({
+    required this.autor,
+    required this.texto,
+    required this.esMio,
+    required this.onResponder,
+    this.esRespuesta = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: esMio ? SteamColors.blue.withOpacity(0.12) : SteamColors.bgPanel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SteamColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                autor,
+                style: TextStyle(
+                  color: esMio ? SteamColors.blue : SteamColors.light,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (esRespuesta) ...[
+                const SizedBox(width: 6),
+                const Text(
+                  '· respuesta',
+                  style: TextStyle(color: SteamColors.muted, fontSize: 10),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            texto,
+            style: const TextStyle(color: SteamColors.textSec, fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onResponder,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Responder', style: TextStyle(fontSize: 11)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EstadoCerrada extends StatelessWidget {
+  const _EstadoCerrada();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: SteamColors.red.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'Cerrada',
+        style: TextStyle(color: SteamColors.red, fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _AutorSection extends StatelessWidget {
+  final Map<String, dynamic> pub;
+  final VoidCallback onTapPerfil;
+
+  const _AutorSection({required this.pub, required this.onTapPerfil});
+
+  @override
+  Widget build(BuildContext context) {
+    final repu = pub['repu_usu'];
+    return InkWell(
+      onTap: onTapPerfil,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: SteamColors.bgPanel,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: SteamColors.border),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: SteamColors.blue.withOpacity(0.2),
+              child: Text(
+                (pub['username_usu']?.toString() ?? 'U')[0].toUpperCase(),
+                style: const TextStyle(color: SteamColors.blue, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pub['username_usu'] ?? 'Autor',
+                    style: const TextStyle(
+                      color: SteamColors.light,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        PaisUtil.codigoANombre(pub['pais_usu']?.toString()),
+                        style: const TextStyle(color: SteamColors.textSec, fontSize: 12),
+                      ),
+                      if (repu != null) ...[
+                        const SizedBox(width: 12),
+                        Text(
+                          '★ ${double.tryParse(repu.toString())?.toStringAsFixed(1) ?? repu}',
+                          style: const TextStyle(color: SteamColors.green, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: SteamColors.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _JuegosLista extends StatelessWidget {
+  final List<dynamic> juegos;
+
+  const _JuegosLista({required this.juegos});
+
+  @override
+  Widget build(BuildContext context) {
+    if (juegos.isEmpty) {
+      return const Text(
+        'Sin juegos asociados.',
+        style: TextStyle(color: SteamColors.textSec, fontSize: 13),
+      );
+    }
+
+    return Column(
+      children: juegos.map((j) {
+        final map = Map<String, dynamic>.from(j as Map);
+        final header = map['headerimg_jg']?.toString();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: SteamColors.bgPanel,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: SteamColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: SteamColors.bgCard,
+                    image: header != null && header.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(header),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: header == null || header.isEmpty
+                      ? const Icon(Icons.videogame_asset, color: SteamColors.muted, size: 18)
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    map['nom_jg'] ?? 'Juego',
+                    style: const TextStyle(color: SteamColors.light, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}

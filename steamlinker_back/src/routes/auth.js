@@ -270,6 +270,13 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciales incorrectas' });
         }
 
+        if (usuario.baneado_usu === true) {
+            return res.status(403).json({
+                error: 'Cuenta suspendida por un administrador',
+                motivo: usuario.motivo_ban || null,
+            });
+        }
+
         // Si las credenciales son correctas, generar token JWT
         // El token es válido por 30 días
         // Incluye: id del usuario, username, y tipo de cuenta

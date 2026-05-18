@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../theme/colors.dart';
 import '../../../widgets/steam_app_bar.dart';
+import '../../../core/auth/session_actions.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../busqueda/screens/busqueda_screen.dart';
 import '../../chat/screens/chat_screen.dart';
@@ -22,7 +23,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'INICIO'),
+      appBar: SteamAppBar(
+        title: 'INICIO',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: SteamColors.muted),
+            tooltip: 'Cerrar sesión',
+            onPressed: () => confirmarYCerrarSesion(context),
+          ),
+        ],
+      ),
       body: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           if (auth.usuario == null) {

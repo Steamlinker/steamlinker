@@ -66,7 +66,7 @@ router.post('/crear', verificarToken, async (req, res) => {
 
 // GET /calificaciones/usuario/:id
 // Devuelve todas las calificaciones recibidas por un usuario
-router.get('/usuario/:id', async (req, res) => {
+router.get('/usuario/:id', verificarToken, async (req, res) => {
     try {
         const resultado = await pool.query(
             `SELECT c.*, u.username_usu AS calificador_username

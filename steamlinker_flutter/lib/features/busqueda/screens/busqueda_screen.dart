@@ -113,6 +113,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                           Icons.search,
                           color: SteamColors.muted,
                         ),
+                        tooltip: 'Buscar',
                         onPressed: () => _buscarJuegos(_searchController.text),
                       ),
                       if (_searchController.text.isNotEmpty)
@@ -121,6 +122,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                             Icons.clear,
                             color: SteamColors.muted,
                           ),
+                          tooltip: 'Limpiar',
                           onPressed: () {
                             _searchController.clear();
                             setState(() {
@@ -194,10 +196,17 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                         ),
                       ),
                       trailing: yaAgregado
-                          ? const SteamButtonOutline(label: 'Agregado')
+                          ? const SteamButtonOutline(
+                              label: 'Agregado',
+                              fullWidth: false,
+                              compact: true,
+                              onTap: null,
+                            )
                           : SteamButtonPrimary(
                               label: 'Agregar',
                               icon: Icons.add,
+                              fullWidth: false,
+                              compact: true,
                               onTap: (ctx) => _agregarJuego(juego),
                             ),
                     );

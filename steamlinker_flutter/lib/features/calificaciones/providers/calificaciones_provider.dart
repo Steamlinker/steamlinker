@@ -4,8 +4,38 @@ import '../../../core/network/api_client.dart';
 
 class CalificacionesProvider extends ChangeNotifier {
   String? _error;
+  bool _cargandoResenas = false;
+  String? _errorResenas;
+  List<dynamic> _resenas = [];
+  double _promedioResenas = 0;
+  int _totalResenas = 0;
 
   String? get error => _error;
+  bool get cargandoResenas => _cargandoResenas;
+  String? get errorResenas => _errorResenas;
+  List<dynamic> get resenas => _resenas;
+  double get promedioResenas => _promedioResenas;
+  int get totalResenas => _totalResenas;
+
+  Future<void> cargarDeUsuario(int userId) async {
+    _cargandoResenas = true;
+    _errorResenas = null;
+    notifyListeners();
+
+    try {
+      final respuesta = await ApiClient.dio.get('/calificaciones/usuario/$userId');
+      _resenas = respuesta.data['calificaciones'] ?? [];
+      _promedioResenas =
+          (respuesta.data['promedio'] as num?)?.toDouble() ?? 0;
+      _totalResenas = respuesta.data['total'] as int? ?? _resenas.length;
+      _cargandoResenas = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _errorResenas = ApiClient.errorMessage(e, fallback: 'Error al cargar reseñas');
+      _cargandoResenas = false;
+      notifyListeners();
+    }
+  }
 
   Future<bool> crear({
     required int idMatch,
@@ -25,7 +55,7 @@ class CalificacionesProvider extends ChangeNotifier {
       });
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al calificar';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al calificar');
       notifyListeners();
       return false;
     }

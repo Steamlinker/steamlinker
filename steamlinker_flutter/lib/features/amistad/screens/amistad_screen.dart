@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../theme/colors.dart';
 import '../../../widgets/steam_app_bar.dart';
+import '../../../widgets/steam_buttons.dart';
 import '../../../widgets/usuario_card.dart';
 import '../providers/amistad_provider.dart';
 import '../../notifications/providers/notificaciones_provider.dart';
@@ -38,6 +39,7 @@ class _AmistadScreenState extends State<AmistadScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: SteamColors.blue),
+            tooltip: 'Actualizar',
             onPressed: () => prov.cargarTodo(),
           ),
         ],
@@ -100,27 +102,36 @@ class _AmistadScreenState extends State<AmistadScreen> {
             'repu_usu': s['repu_usu'],
           },
           subtitulo: 'Quiere ser tu amigo',
-          accion: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.check_circle_outline, color: SteamColors.green),
-                onPressed: () async {
-                  await prov.responder(s['id_amistad'], 'Aceptada');
-                  if (!context.mounted) return;
-                  context.read<NotificacionesProvider>().cargarContador();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Amistad aceptada')),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.cancel_outlined, color: SteamColors.red),
-                onPressed: () async {
-                  await prov.responder(s['id_amistad'], 'Rechazada');
-                },
-              ),
-            ],
+          accion: SizedBox(
+            width: 108,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SteamButtonPrimary(
+                  label: 'Aceptar',
+                  icon: Icons.check,
+                  fullWidth: true,
+                  compact: true,
+                  onTap: (_) async {
+                    await prov.responder(s['id_amistad'], 'Aceptada');
+                    if (!context.mounted) return;
+                    context.read<NotificacionesProvider>().cargarContador();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Amistad aceptada')),
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
+                SteamButtonOutline(
+                  label: 'Rechazar',
+                  icon: Icons.close,
+                  fullWidth: true,
+                  compact: true,
+                  onTap: () => prov.responder(s['id_amistad'], 'Rechazada'),
+                ),
+              ],
+            ),
           ),
         );
       },

@@ -2,14 +2,19 @@
 import 'package:provider/provider.dart';
 import '../../../core/constants/pais_util.dart';
 import '../../../core/constants/publicacion_constants.dart';
+import '../../../core/utils/relacion_helper.dart';
 import '../../../theme/colors.dart';
 import '../../../widgets/drop_field.dart';
+import '../../../widgets/publicacion_card.dart';
 import '../../../widgets/steam_app_bar.dart';
+import '../../amistad/providers/amistad_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../matches/providers/matches_provider.dart';
 import '../../perfil/providers/perfil_provider.dart';
 import '../providers/publicaciones_provider.dart';
 import '../../usuarios/screens/usuario_detalle_screen.dart';
 import 'crear_publicacion_screen.dart';
+import 'publicacion_detalle_screen.dart';
 
 class PublicacionesScreen extends StatefulWidget {
   const PublicacionesScreen({super.key});
@@ -38,7 +43,11 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
       await perfil.cargarPerfil(id);
     }
     if (!mounted) return;
-    await context.read<PublicacionesProvider>().buscar();
+    await Future.wait([
+      context.read<PublicacionesProvider>().buscar(),
+      context.read<MatchesProvider>().cargarTodo(),
+      context.read<AmistadProvider>().cargarTodo(),
+    ]);
   }
 
   Future<void> _recargar() async {
@@ -106,6 +115,7 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.close, color: SteamColors.muted),
+                          tooltip: 'Cerrar',
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -208,6 +218,8 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
   Widget build(BuildContext context) {
     final publicacionesProv = context.watch<PublicacionesProvider>();
     final auth = context.watch<AuthProvider>();
+    final matchesProv = context.watch<MatchesProvider>();
+    final amistadProv = context.watch<AmistadProvider>();
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
@@ -259,7 +271,13 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
                 color: SteamColors.blue,
                 backgroundColor: SteamColors.bgDeep,
                 onRefresh: _recargar,
-                child: _buildLista(publicacionesProv, auth),
+                child: _buildLista(
+                  publicacionesProv,
+                  auth,
+                  matchesProv,
+                  amistadProv,
+                  auth.usuario?['id'] as int?,
+                ),
               ),
             ),
           ],
@@ -268,7 +286,13 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
     );
   }
 
-  Widget _buildLista(PublicacionesProvider publicacionesProv, AuthProvider auth) {
+  Widget _buildLista(
+    PublicacionesProvider publicacionesProv,
+    AuthProvider auth,
+    MatchesProvider matchesProv,
+    AmistadProvider amistadProv,
+    int? miId,
+  ) {
     if (publicacionesProv.cargando) {
       return const Center(
         child: CircularProgressIndicator(
@@ -315,129 +339,55 @@ class _PublicacionesScreenState extends State<PublicacionesScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final publicacion = publicacionesProv.publicaciones[index];
-        final juegos = (publicacion['juegos'] as List<dynamic>?) ?? [];
-        final esMia =
-            auth.usuario != null && auth.usuario!['id'] == publicacion['id_usu'];
-        final repu = publicacion['repu_usu'];
+        final autorId = publicacion['id_usu'] as int?;
+        final esMia = miId != null && miId == autorId;
+        final relacion = RelacionResumen.paraUsuario(
+          miId: miId,
+          otroId: autorId,
+          matches: matchesProv,
+          amistad: amistadProv,
+        );
 
-        return Container(
-          decoration: BoxDecoration(
-            color: SteamColors.bgPanel,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: SteamColors.border),
-          ),
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: SteamColors.blue.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      PublicacionConstants.etiquetaTipo(publicacion['tipo_publi']),
-                      style: const TextStyle(
-                        color: SteamColors.blue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+        return PublicacionCard(
+          publicacion: Map<String, dynamic>.from(publicacion as Map),
+          esMia: esMia,
+          relacion: relacion,
+          onTap: () async {
+            final id = publicacion['id_publi'] as int?;
+            if (id == null) return;
+            final actualizado = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                builder: (_) => PublicacionDetalleScreen(idPubli: id),
+              ),
+            );
+            if (actualizado == true && context.mounted) {
+              await _recargar();
+            }
+          },
+          onTapAutor: autorId != null
+              ? () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => UsuarioDetalleScreen(
+                        userId: autorId,
+                        idPubli: publicacion['id_publi'] as int?,
+                        tituloPublicacion: publicacion['titulo_publi'] as String?,
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  if (repu != null)
-                    _InfoPill(
-                      icon: Icons.star_outline,
-                      label: '${double.tryParse(repu.toString())?.toStringAsFixed(1) ?? repu} rep.',
-                    ),
-                  if (esMia)
-                    IconButton(
-                      icon: const Icon(Icons.close, color: SteamColors.red),
-                      tooltip: 'Cerrar publicación',
-                      onPressed: () async {
-                        await publicacionesProv.cerrar(publicacion['id_publi']);
-                        if (!context.mounted) return;
-                        if (publicacionesProv.error != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(publicacionesProv.error!)),
-                          );
-                        }
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                publicacion['titulo_publi'] ?? '',
-                style: const TextStyle(
-                  color: SteamColors.light,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                publicacion['descrip_publi'] ?? 'Sin descripción',
-                style: const TextStyle(color: SteamColors.textSec, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                                  InkWell(
-                                    onTap: publicacion['id_usu'] != null
-                                        ? () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) => UsuarioDetalleScreen(
-                                                  userId: publicacion['id_usu'] as int,
-                                                  idPubli: publicacion['id_publi'] as int?,
-                                                  tituloPublicacion:
-                                                      publicacion['titulo_publi'] as String?,
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        : null,
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: _InfoPill(
-                                      icon: Icons.person_outline,
-                                      label: publicacion['username_usu'] ?? 'Autor',
-                                    ),
-                                  ),
-                  _InfoPill(
-                    icon: Icons.public,
-                    label: publicacion['paisfiltro_publi'] != null &&
-                            publicacion['paisfiltro_publi'].toString().isNotEmpty
-                        ? PaisUtil.codigoANombre(publicacion['paisfiltro_publi'])
-                        : 'Todos los países',
-                  ),
-                  _InfoPill(
-                    icon: Icons.videogame_asset_outlined,
-                    label: '${publicacion['total_juegos'] ?? juegos.length} juegos',
-                  ),
-                ],
-              ),
-              if (juegos.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: juegos.take(4).map<Widget>((juego) {
-                    return Chip(
-                      label: Text(juego['nom_jg'] ?? ''),
-                      backgroundColor: SteamColors.bgCard,
-                      labelStyle: const TextStyle(color: SteamColors.light),
+                  );
+                }
+              : null,
+          onCerrar: esMia
+              ? () async {
+                  await publicacionesProv.cerrar(publicacion['id_publi']);
+                  if (!context.mounted) return;
+                  if (publicacionesProv.error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(publicacionesProv.error!)),
                     );
-                  }).toList(),
-                ),
-              ],
-            ],
-          ),
+                  }
+                }
+              : null,
         );
       },
     );
@@ -513,31 +463,3 @@ class _FiltrosActivosBar extends StatelessWidget {
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoPill({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: SteamColors.bgCard,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: SteamColors.muted),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(color: SteamColors.textSec, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}

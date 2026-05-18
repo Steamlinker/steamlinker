@@ -6,6 +6,7 @@ import '../../../widgets/steam_app_bar.dart';
 import '../../../widgets/steam_card.dart';
 import '../../../widgets/steam_toast.dart';
 import '../../../widgets/steam_buttons.dart';
+import '../../../core/auth/session_actions.dart';
 import '../../account/screens/account_settings_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../busqueda/screens/busqueda_screen.dart';
@@ -374,6 +375,16 @@ class _PerfilScreenState extends State<PerfilScreen> {
       backgroundColor: SteamColors.bgDeep,
       appBar: SteamAppBar(
         title: Navigator.of(context).canPop() ? 'MIS JUEGOS' : 'PERFIL',
+        showUserActions: Navigator.of(context).canPop(),
+        actions: Navigator.of(context).canPop()
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.logout, color: SteamColors.muted),
+                  tooltip: 'Cerrar sesión',
+                  onPressed: () => confirmarYCerrarSesion(context),
+                ),
+              ],
       ),
       body: perfilProv.cargando && perfil == null
           ? const Center(
@@ -420,19 +431,35 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: SteamButtonOutline(
-                            label: 'Configuración de cuenta',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const AccountSettingsScreen(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SteamButtonOutline(
+                                label: 'Configuración',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const AccountSettingsScreen(),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => confirmarYCerrarSesion(context),
+                                icon: const Icon(Icons.logout, size: 16),
+                                label: const Text('Salir'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: SteamColors.red,
+                                  side: const BorderSide(color: SteamColors.red),
+                                  padding: const EdgeInsets.symmetric(vertical: 11),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -493,6 +520,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                                             size: 18,
                                             color: SteamColors.textSec,
                                           ),
+                                          tooltip: 'Copiar enlace de Steam',
                                           onPressed: () {
                                             final url =
                                                 perfil['steam']['perfil_url'] ??

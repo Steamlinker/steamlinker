@@ -8,6 +8,7 @@ import '../../../widgets/steam_buttons.dart';
 import '../../../widgets/toggle_row.dart';
 import '../../../widgets/drop_field.dart';
 import '../../../widgets/steam_toast.dart';
+import '../../../core/auth/session_actions.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../perfil/providers/perfil_provider.dart';
 
@@ -652,7 +653,7 @@ class _DangerCard extends StatelessWidget {
               SteamButtonDanger(
                 label: 'Cerrar sesión',
                 icon: Icons.logout,
-                onTap: () => context.read<AuthProvider>().logout(),
+                onTap: () => confirmarYCerrarSesion(context),
               ),
             ],
           ),

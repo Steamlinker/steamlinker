@@ -63,6 +63,66 @@ router.post('/enviar', verificarToken, async (req, res) => {
     }
 });
 
+// GET /matches/estado/:otroId
+// Estado de match y amistad entre el usuario logueado y otro usuario
+router.get('/estado/:otroId', verificarToken, async (req, res) => {
+    const otroId = parseInt(req.params.otroId, 10);
+    const miId = req.usuario.id;
+
+    if (!otroId || Number.isNaN(otroId)) {
+        return res.status(400).json({ error: 'ID de usuario inválido' });
+    }
+
+    if (otroId === miId) {
+        return res.json({ match: null, amistad: null, es_yo: true });
+    }
+
+    try {
+        const matchRes = await pool.query(
+            `SELECT id_match, estado_match, id_solicitante, id_receptor
+             FROM matches
+             WHERE (id_solicitante = $1 AND id_receptor = $2)
+                OR (id_solicitante = $2 AND id_receptor = $1)
+             ORDER BY creadoen_match DESC
+             LIMIT 1`,
+            [miId, otroId]
+        );
+
+        const amistadRes = await pool.query(
+            `SELECT id_amistad, estado_amistad, id_solicitante, id_receptor
+             FROM amistad
+             WHERE (id_solicitante = $1 AND id_receptor = $2)
+                OR (id_solicitante = $2 AND id_receptor = $1)
+             ORDER BY creadoen_amistad DESC
+             LIMIT 1`,
+            [miId, otroId]
+        );
+
+        const matchRow = matchRes.rows[0];
+        const amistadRow = amistadRes.rows[0];
+
+        res.json({
+            es_yo: false,
+            match: matchRow
+                ? {
+                    id_match: matchRow.id_match,
+                    estado: matchRow.estado_match,
+                    soy_solicitante: matchRow.id_solicitante === miId,
+                }
+                : null,
+            amistad: amistadRow
+                ? {
+                    id_amistad: amistadRow.id_amistad,
+                    estado: amistadRow.estado_amistad,
+                    soy_solicitante: amistadRow.id_solicitante === miId,
+                }
+                : null,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /matches/recibidos
 // Lista las solicitudes recibidas por el usuario logueado
 router.get('/recibidos', verificarToken, async (req, res) => {

@@ -20,24 +20,48 @@ class DescubrirGamersScreen extends StatefulWidget {
 
 class _DescubrirGamersScreenState extends State<DescubrirGamersScreen> {
   bool _inicializado = false;
+  String? _filtroJuegoNombre;
+  int? _filtroAppid;
+  String? _filtroTipoEtiqueta;
+  String? _filtroPaisEtiqueta;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_inicializado) {
       _inicializado = true;
-      context.read<PerfilProvider>().descubrirUsuarios();
+      _inicializar();
     }
   }
 
+  Future<void> _inicializar() async {
+    final auth = context.read<AuthProvider>();
+    final perfil = context.read<PerfilProvider>();
+    final id = auth.usuario?['id'];
+    if (id != null && perfil.juegos.isEmpty) {
+      await perfil.cargarPerfil(id);
+    }
+    if (!mounted) return;
+    await perfil.descubrirUsuarios();
+  }
+
   Future<void> _recargar() async {
-    await context.read<PerfilProvider>().descubrirUsuarios();
+    await context.read<PerfilProvider>().descubrirUsuarios(
+      appid: _filtroAppid,
+    );
   }
 
   Future<void> _abrirFiltros() async {
     final perfil = context.read<PerfilProvider>();
-    var tipoEtiqueta = PublicacionConstants.tiposFiltroEtiquetas.first;
-    var paisEtiqueta = PaisUtil.todos;
+    var tipoEtiqueta =
+        _filtroTipoEtiqueta ?? PublicacionConstants.tiposFiltroEtiquetas.first;
+    var paisEtiqueta = _filtroPaisEtiqueta ?? PaisUtil.todos;
+    var juegoEtiqueta = _filtroJuegoNombre ?? 'Todos los juegos';
+
+    final juegosFiltro = [
+      'Todos los juegos',
+      ...perfil.juegos.map((j) => j['nombre']?.toString() ?? 'Juego'),
+    ];
 
     await showModalBottomSheet<void>(
       context: context,
@@ -74,6 +98,12 @@ class _DescubrirGamersScreenState extends State<DescubrirGamersScreen> {
                     items: [PaisUtil.todos, ...PaisUtil.nombres],
                     onChanged: (v) => setSheetState(() => paisEtiqueta = v),
                   ),
+                  DropField(
+                    label: 'Juego en publicación',
+                    value: juegoEtiqueta,
+                    items: juegosFiltro,
+                    onChanged: (v) => setSheetState(() => juegoEtiqueta = v),
+                  ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: SteamColors.blue),
                     onPressed: () {
@@ -81,10 +111,35 @@ class _DescubrirGamersScreenState extends State<DescubrirGamersScreen> {
                       final pais = paisEtiqueta == PaisUtil.todos
                           ? null
                           : PaisUtil.nombreACodigo(paisEtiqueta);
+
+                      int? appid;
+                      String? juegoNombre;
+                      if (juegoEtiqueta != 'Todos los juegos') {
+                        for (final j in perfil.juegos) {
+                          if ((j['nombre']?.toString() ?? '') == juegoEtiqueta) {
+                            appid = j['appid'] as int?;
+                            juegoNombre = juegoEtiqueta;
+                            break;
+                          }
+                        }
+                      }
+
+                      setState(() {
+                        _filtroAppid = appid;
+                        _filtroJuegoNombre = juegoNombre;
+                        _filtroTipoEtiqueta = tipoEtiqueta ==
+                                PublicacionConstants.tiposFiltroEtiquetas.first
+                            ? null
+                            : tipoEtiqueta;
+                        _filtroPaisEtiqueta =
+                            paisEtiqueta == PaisUtil.todos ? null : paisEtiqueta;
+                      });
+
                       Navigator.pop(context);
                       perfil.descubrirUsuarios(
                         tipo: tipo.isEmpty ? null : tipo,
                         pais: pais,
+                        appid: appid,
                       );
                     },
                     child: const Text('Aplicar'),
@@ -135,11 +190,57 @@ class _DescubrirGamersScreenState extends State<DescubrirGamersScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: SteamColors.blue),
+            tooltip: 'Actualizar',
             onPressed: _recargar,
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: Column(
+        children: [
+          if (_filtroTipoEtiqueta != null ||
+              _filtroPaisEtiqueta != null ||
+              _filtroJuegoNombre != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: const BoxDecoration(
+                color: SteamColors.bgPanel,
+                border: Border(bottom: BorderSide(color: SteamColors.border)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (_filtroTipoEtiqueta != null)
+                            _chipFiltro(_filtroTipoEtiqueta!),
+                          if (_filtroPaisEtiqueta != null)
+                            _chipFiltro(_filtroPaisEtiqueta!),
+                          if (_filtroJuegoNombre != null)
+                            _chipFiltro(_filtroJuegoNombre!),
+                        ],
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _filtroAppid = null;
+                        _filtroJuegoNombre = null;
+                        _filtroTipoEtiqueta = null;
+                        _filtroPaisEtiqueta = null;
+                      });
+                      perfilProv.descubrirUsuarios();
+                    },
+                    child: const Text('Limpiar', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: RefreshIndicator(
         color: SteamColors.blue,
         onRefresh: _recargar,
         child: perfilProv.descubrirCargando
@@ -186,6 +287,22 @@ class _DescubrirGamersScreenState extends State<DescubrirGamersScreen> {
                       );
                     },
                   ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chipFiltro(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Chip(
+        label: Text(label, style: const TextStyle(fontSize: 11)),
+        backgroundColor: SteamColors.bgCard,
+        labelStyle: const TextStyle(color: SteamColors.blue),
+        side: const BorderSide(color: SteamColors.border),
+        visualDensity: VisualDensity.compact,
       ),
     );
   }

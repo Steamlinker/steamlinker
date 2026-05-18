@@ -70,13 +70,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildBody(ChatProvider chatProv) {
     if (chatProv.cargandoLista && chatProv.conversaciones.isEmpty) {
-      return const ListView(
-        physics: AlwaysScrollableScrollPhysics(),
-        children: [
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
           SizedBox(height: 120),
           Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(SteamColors.blue),
+              valueColor: AlwaysStoppedAnimation<Color>(SteamColors.blue),
             ),
           ),
         ],

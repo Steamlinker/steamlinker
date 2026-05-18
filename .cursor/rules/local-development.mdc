@@ -1,0 +1,31 @@
+---
+description: Desarrollo local de Steamlinker (no despliegue en producción por defecto)
+alwaysApply: true
+---
+
+# Steamlinker — desarrollo local
+
+Por defecto, trabaja en **local**, no en producción. No propongas el checklist de despliegue (NODE_ENV=production, dominios HTTPS, build_release, FCM, keystore) salvo que el usuario lo pida explícitamente.
+
+## Backend
+
+```powershell
+cd steamlinker_back
+.\scripts\start_local.ps1
+# o: npm run dev
+```
+
+- `.env` con `NODE_ENV=development`, PostgreSQL en `localhost`, `PORT=3000`
+- Verificar: `GET http://localhost:3000/health`
+- En consola aparecen las URLs LAN para móvil físico
+
+## Flutter (debug)
+
+```powershell
+cd steamlinker_flutter
+.\scripts\run_dev.ps1
+# móvil físico: .\scripts\run_dev.ps1 -ApiUrl "http://192.168.x.x:3000"
+```
+
+- Emulador: `http://10.0.2.2:3000` por defecto
+- Release / producción solo si el usuario lo solicita

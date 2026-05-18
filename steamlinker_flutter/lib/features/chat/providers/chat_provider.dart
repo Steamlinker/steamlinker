@@ -49,7 +49,7 @@ class ChatProvider extends ChangeNotifier {
       _cargandoLista = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar conversaciones';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar conversaciones');
       _cargandoLista = false;
       notifyListeners();
     }
@@ -69,7 +69,7 @@ class ChatProvider extends ChangeNotifier {
       _cargandoMensajes = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar mensajes';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar mensajes');
       _cargandoMensajes = false;
       notifyListeners();
     }
@@ -105,7 +105,7 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al enviar mensaje';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al enviar mensaje');
       _enviando = false;
       notifyListeners();
       return false;
@@ -121,7 +121,7 @@ class ChatProvider extends ChangeNotifier {
       final chat = respuesta.data['chat'];
       return chat['id_chat'] as int?;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al iniciar chat';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al iniciar chat');
       notifyListeners();
       return null;
     }

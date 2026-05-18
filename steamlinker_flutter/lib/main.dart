@@ -4,11 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'core/network/api_bootstrap.dart';
 import 'core/network/api_client.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/amistad/providers/amistad_provider.dart';
 import 'features/calificaciones/providers/calificaciones_provider.dart';
+import 'features/reportes/providers/reportes_provider.dart';
 import 'features/chat/providers/chat_provider.dart';
 import 'features/home/screens/main_shell.dart';
 import 'features/matches/providers/matches_provider.dart';
@@ -37,11 +39,13 @@ class SteamlinkerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MatchesProvider()),
         ChangeNotifierProvider(create: (_) => AmistadProvider()),
         ChangeNotifierProvider(create: (_) => CalificacionesProvider()),
+        ChangeNotifierProvider(create: (_) => ReportesProvider()),
         ChangeNotifierProvider(create: (_) => NotificacionesProvider()),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          return MaterialApp.router(
+      child: ApiBootstrap(
+        child: Consumer<AuthProvider>(
+          builder: (context, auth, _) {
+            return MaterialApp.router(
             title: 'Steamlinker',
             debugShowCheckedModeBanner: false,
             theme: SteamTheme.theme,
@@ -66,7 +70,8 @@ class SteamlinkerApp extends StatelessWidget {
               ],
             ),
           );
-        },
+          },
+        ),
       ),
     );
   }

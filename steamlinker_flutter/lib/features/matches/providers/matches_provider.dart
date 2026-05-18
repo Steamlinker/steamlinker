@@ -30,7 +30,7 @@ class MatchesProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar matches';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar matches');
       _cargando = false;
       notifyListeners();
     }
@@ -47,7 +47,7 @@ class MatchesProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar matches';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar matches');
       _cargando = false;
       notifyListeners();
     }
@@ -64,9 +64,20 @@ class MatchesProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar matches';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar matches');
       _cargando = false;
       notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>?> consultarEstado(int otroId) async {
+    try {
+      final respuesta = await ApiClient.dio.get('/matches/estado/$otroId');
+      return Map<String, dynamic>.from(respuesta.data as Map);
+    } on DioException catch (e) {
+      _error = ApiClient.errorMessage(e, fallback: 'Error al consultar estado');
+      notifyListeners();
+      return null;
     }
   }
 
@@ -77,10 +88,10 @@ class MatchesProvider extends ChangeNotifier {
         'id_receptor': idReceptor,
         'id_publi': idPubli,
       });
-      await cargarEnviados();
+      await cargarTodo();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al enviar match';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al enviar match');
       notifyListeners();
       return false;
     }
@@ -95,7 +106,7 @@ class MatchesProvider extends ChangeNotifier {
       await cargarRecibidos();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al responder match';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al responder match');
       notifyListeners();
       return false;
     }

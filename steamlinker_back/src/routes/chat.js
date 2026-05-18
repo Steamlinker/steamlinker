@@ -133,6 +133,32 @@ router.post('/iniciar', verificarToken, async (req, res) => {
     }
 
     try {
+        const amistad = await pool.query(
+            `SELECT 1 FROM amistad
+             WHERE estado_amistad = 'Aceptada'
+               AND (
+                 (id_solicitante = $1 AND id_receptor = $2)
+                 OR (id_solicitante = $2 AND id_receptor = $1)
+               )`,
+            [req.usuario.id, id_receptor]
+        );
+
+        const match = await pool.query(
+            `SELECT 1 FROM matches
+             WHERE estado_match = 'Aceptada'
+               AND (
+                 (id_solicitante = $1 AND id_receptor = $2)
+                 OR (id_solicitante = $2 AND id_receptor = $1)
+               )`,
+            [req.usuario.id, id_receptor]
+        );
+
+        if (amistad.rows.length === 0 && match.rows.length === 0) {
+            return res.status(403).json({
+                error: 'Solo puedes chatear con amigos aceptados o matches aceptados',
+            });
+        }
+
         const existe = await pool.query(
             `SELECT * FROM chat 
              WHERE (id_participante1 = $1 AND id_participante2 = $2)

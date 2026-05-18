@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steamlinker · Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#070910;--bg1:#0d1017;--bg2:#121620;--bg3:#181d29;--bg4:#1e2435;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--border3:rgba(255,255,255,0.2);
+  --accent:#1b8cff;--accent-h:#4da6ff;--accent-d:rgba(27,140,255,0.15);--accent-d2:rgba(27,140,255,0.25);
+  --t1:#dde2f0;--t2:#7a87a0;--t3:#3d4a5c;
+  --red:#e05252;--red-d:rgba(224,82,82,0.13);
+  --green:#3dba7e;--green-d:rgba(61,186,126,0.13);
+  --yellow:#e0a030;--yellow-d:rgba(224,160,48,0.13);
+  --orange:#e07830;--orange-d:rgba(224,120,48,0.13);
+  --sidebar:220px;--topbar:52px;
+  --radius:6px;--radius2:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{font-family:'Chakra Petch',sans-serif;background:var(--bg0);color:var(--t1);font-size:13px;overflow:hidden;}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px;}
+
+/* ─── LOGIN ─── */
+#login-screen{position:fixed;inset:0;background:var(--bg0);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.login-box{width:360px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius2);padding:36px 32px;}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;}
+.login-logo svg{width:32px;height:32px;}
+.login-logo span{font-size:18px;font-weight:700;letter-spacing:.05em;color:var(--t1);}
+.login-logo em{color:var(--accent);font-style:normal;}
+.login-box h2{font-size:14px;font-weight:600;margin-bottom:6px;color:var(--t1);}
+.login-box p{font-size:12px;color:var(--t2);margin-bottom:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;color:var(--t2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
+.field input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:9px 12px;color:var(--t1);font-family:'Chakra Petch',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+.field input:focus{border-color:var(--accent);}
+.btn-primary{width:100%;background:var(--accent);border:none;border-radius:var(--radius);padding:10px;color:#fff;font-family:'Chakra Petch',sans-serif;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.04em;transition:background .2s,opacity .2s;}
+.btn-primary:hover{background:var(--accent-h);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+#login-error{margin-top:12px;font-size:12px;color:var(--red);text-align:center;min-height:16px;}
+.login-url{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+.login-url label{display:block;font-size:11px;color:var(--t3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
+.login-url input{width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;}
+.login-url input:focus{border-color:var(--border2);color:var(--t1);}
+
+/* ─── LAYOUT ─── */
+#app{display:none;height:100vh;flex-direction:row;}
+#app.visible{display:flex;}
+
+/* ─── SIDEBAR ─── */
+#sidebar{width:var(--sidebar);min-width:var(--sidebar);background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+.sidebar-logo{padding:16px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.sidebar-logo svg{width:22px;height:22px;flex-shrink:0;}
+.sidebar-logo span{font-size:14px;font-weight:700;letter-spacing:.04em;color:var(--t1);}
+.sidebar-logo em{color:var(--accent);font-style:normal;}
+.sidebar-logo small{font-size:9px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-left:auto;flex-shrink:0;}
+.nav-group{padding:12px 10px 4px;flex-shrink:0;}
+.nav-group-label{font-size:9px;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;padding:0 8px;margin-bottom:4px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 8px;border-radius:var(--radius);cursor:pointer;color:var(--t2);transition:background .15s,color .15s;border:none;background:none;width:100%;font-family:'Chakra Petch',sans-serif;font-size:12.5px;letter-spacing:.02em;text-align:left;}
+.nav-item svg{width:16px;height:16px;flex-shrink:0;}
+.nav-item:hover{background:var(--bg3);color:var(--t1);}
+.nav-item.active{background:var(--accent-d);color:var(--accent);}
+.nav-item .badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;padding:1px 5px;border-radius:10px;font-weight:600;}
+.sidebar-footer{margin-top:auto;padding:12px 10px;border-top:1px solid var(--border);flex-shrink:0;}
+.user-info{display:flex;align-items:center;gap:8px;padding:6px 8px;}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-d2);border:1px solid var(--accent-d);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--accent);flex-shrink:0;}
+.user-name{font-size:12px;color:var(--t1);font-weight:500;}
+.user-role{font-size:10px;color:var(--t3);}
+.btn-logout{display:flex;align-items:center;gap:6px;width:100%;padding:7px 8px;background:none;border:none;color:var(--t3);font-family:'Chakra Petch',sans-serif;font-size:11px;cursor:pointer;border-radius:var(--radius);transition:color .15s,background .15s;margin-top:4px;}
+.btn-logout:hover{color:var(--red);background:var(--red-d);}
+.btn-logout svg{width:14px;height:14px;}
+
+/* ─── MAIN ─── */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#topbar{height:var(--topbar);min-height:var(--topbar);background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;}
+#page-title{font-size:14px;font-weight:600;color:var(--t1);}
+#page-sub{font-size:11px;color:var(--t3);margin-left:4px;}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:8px;}
+#content{flex:1;overflow-y:auto;padding:20px;}
+
+/* ─── SECTIONS ─── */
+.section{display:none;}
+.section.active{display:block;}
+
+/* ─── STATS GRID ─── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:16px;}
+.stat-card .label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+.stat-card .value{font-size:26px;font-weight:700;color:var(--t1);line-height:1;font-family:'JetBrains Mono',monospace;}
+.stat-card .change{font-size:10px;margin-top:6px;}
+.stat-card .change.up{color:var(--green);}
+.stat-card .change.down{color:var(--red);}
+.stat-card.accent-blue{border-color:rgba(27,140,255,0.2);background:linear-gradient(135deg,var(--bg2) 60%,rgba(27,140,255,0.05));}
+.stat-card.accent-green{border-color:rgba(61,186,126,0.2);background:linear-gradient(135deg,var(--bg2) 60%,rgba(61,186,126,0.05));}
+.stat-card.accent-red{border-color:rgba(224,82,82,0.2);background:linear-gradient(135deg,var(--bg2) 60%,rgba(224,82,82,0.05));}
+.stat-card.accent-yellow{border-color:rgba(224,160,48,0.2);background:linear-gradient(135deg,var(--bg2) 60%,rgba(224,160,48,0.05));}
+
+/* ─── CARDS ─── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);overflow:hidden;margin-bottom:16px;}
+.card-header{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:10px;}
+.card-title{font-size:12.5px;font-weight:600;color:var(--t1);}
+.card-actions{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.card-body{padding:16px;}
+
+/* ─── TABLE ─── */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg1);white-space:nowrap;}
+td{padding:9px 12px;border-bottom:1px solid var(--border);color:var(--t1);vertical-align:middle;font-size:12.5px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--bg3);}
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t2);}
+
+/* ─── BADGES ─── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:.04em;white-space:nowrap;}
+.badge-blue{background:var(--accent-d);color:var(--accent);}
+.badge-green{background:var(--green-d);color:var(--green);}
+.badge-red{background:var(--red-d);color:var(--red);}
+.badge-yellow{background:var(--yellow-d);color:var(--yellow);}
+.badge-orange{background:var(--orange-d);color:var(--orange);}
+.badge-gray{background:rgba(122,135,160,0.13);color:var(--t2);}
+
+/* ─── BUTTONS ─── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius);border:none;font-family:'Chakra Petch',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;letter-spacing:.02em;}
+.btn svg{width:14px;height:14px;}
+.btn-blue{background:var(--accent-d);color:var(--accent);}
+.btn-blue:hover{background:var(--accent-d2);}
+.btn-green{background:var(--green-d);color:var(--green);}
+.btn-green:hover{background:rgba(61,186,126,0.22);}
+.btn-red{background:var(--red-d);color:var(--red);}
+.btn-red:hover{background:rgba(224,82,82,0.22);}
+.btn-yellow{background:var(--yellow-d);color:var(--yellow);}
+.btn-yellow:hover{background:rgba(224,160,48,0.22);}
+.btn-ghost{background:transparent;color:var(--t2);border:1px solid var(--border);}
+.btn-ghost:hover{background:var(--bg3);color:var(--t1);}
+.btn-sm{padding:4px 8px;font-size:11px;}
+.btn-sm svg{width:12px;height:12px;}
+.btn-icon{padding:5px;background:transparent;border:1px solid var(--border);color:var(--t2);}
+.btn-icon:hover{background:var(--bg3);color:var(--t1);}
+
+/* ─── SEARCH / FILTERS ─── */
+.filters-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+.search-wrap{position:relative;flex:1;min-width:180px;}
+.search-wrap input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px 7px 32px;color:var(--t1);font-family:'Chakra Petch',sans-serif;font-size:12px;outline:none;}
+.search-wrap input:focus{border-color:var(--border2);}
+.search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--t3);pointer-events:none;}
+select.filter-sel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:7px 10px;color:var(--t1);font-family:'Chakra Petch',sans-serif;font-size:12px;outline:none;cursor:pointer;}
+select.filter-sel:focus{border-color:var(--border2);}
+
+/* ─── PAGINATION ─── */
+.pagination{display:flex;align-items:center;gap:6px;padding:12px 16px;border-top:1px solid var(--border);justify-content:flex-end;}
+.pag-btn{padding:4px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--t2);font-family:'Chakra Petch',sans-serif;font-size:11px;cursor:pointer;}
+.pag-btn:hover:not(:disabled){border-color:var(--border2);color:var(--t1);}
+.pag-btn.active{background:var(--accent-d);border-color:var(--accent);color:var(--accent);}
+.pag-btn:disabled{opacity:.4;cursor:not-allowed;}
+.pag-info{font-size:11px;color:var(--t3);margin-right:auto;}
+
+/* ─── EMPTY STATE ─── */
+.empty{text-align:center;padding:40px 20px;color:var(--t3);}
+.empty svg{width:36px;height:36px;margin-bottom:10px;opacity:.4;}
+.empty p{font-size:12px;}
+
+/* ─── LOADER ─── */
+.loader{text-align:center;padding:40px;color:var(--t3);font-size:12px;}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin-bottom:8px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ─── AVATAR ─── */
+.avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--bg4);flex-shrink:0;}
+.avatar-txt{width:28px;height:28px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--t2);flex-shrink:0;text-transform:uppercase;}
+.user-cell{display:flex;align-items:center;gap:9px;}
+
+/* ─── MODAL ─── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;display:none;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius2);width:380px;max-width:90vw;overflow:hidden;}
+.modal-head{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:10px;}
+.modal-head h3{font-size:13px;font-weight:600;flex:1;}
+.modal-body{padding:16px;font-size:12.5px;color:var(--t2);line-height:1.6;}
+.modal-body strong{color:var(--t1);}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 16px;border-top:1px solid var(--border);}
+
+/* ─── TOAST ─── */
+#toasts{position:fixed;bottom:18px;right:18px;z-index:999;display:flex;flex-direction:column;gap:8px;}
+.toast{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;color:var(--t1);min-width:240px;max-width:320px;animation:slideIn .2s ease;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.toast svg{width:15px;height:15px;flex-shrink:0;}
+.toast.ok{border-left:3px solid var(--green);}
+.toast.ok svg{color:var(--green);}
+.toast.err{border-left:3px solid var(--red);}
+.toast.err svg{color:var(--red);}
+.toast.info{border-left:3px solid var(--accent);}
+.toast.info svg{color:var(--accent);}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+
+/* ─── CONFIG ─── */
+.config-grid{display:grid;gap:14px;}
+.config-row{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+.config-row label{display:block;font-size:11px;color:var(--t2);margin-bottom:6px;letter-spacing:.04em;}
+.config-row input{width:100%;background:var(--bg1);border:1px solid var(--border2);border-radius:var(--radius);padding:8px 10px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;}
+.config-row input:focus{border-color:var(--accent);}
+.config-row .hint{font-size:10px;color:var(--t3);margin-top:4px;}
+.endpoints-table td:first-child{color:var(--t3);font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap;}
+.endpoints-table td:last-child{color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:11px;}
+.method{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.05em;margin-right:4px;}
+.GET{background:var(--green-d);color:var(--green);}
+.POST{background:var(--accent-d);color:var(--accent);}
+.PUT{background:var(--yellow-d);color:var(--yellow);}
+.DELETE{background:var(--red-d);color:var(--red);}
+
+/* ─── ACTIVITY FEED ─── */
+.activity-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);}
+.activity-item:last-child{border-bottom:none;}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+.activity-dot.blue{background:var(--accent);}
+.activity-dot.green{background:var(--green);}
+.activity-dot.red{background:var(--red);}
+.activity-dot.yellow{background:var(--yellow);}
+.activity-text{font-size:12px;color:var(--t1);}
+.activity-text span{color:var(--t2);}
+.activity-time{margin-left:auto;font-size:10px;color:var(--t3);white-space:nowrap;flex-shrink:0;}
+
+/* ─── DETAIL PANEL ─── */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.detail-field{background:var(--bg3);border-radius:var(--radius);padding:10px 12px;}
+.detail-field .df-label{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;}
+.detail-field .df-value{font-size:12.5px;color:var(--t1);}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:700px){
+  :root{--sidebar:0px;}
+  #sidebar{display:none;}
+  body{overflow:auto;}
+  #app{flex-direction:column;}
+  #main{height:auto;overflow:visible;}
+  #content{overflow:visible;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ LOGIN ══════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="7" fill="rgba(27,140,255,0.15)"/>
+        <path d="M8 16a8 8 0 1 1 16 0" stroke="#1b8cff" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="3" fill="#1b8cff"/>
+        <path d="M16 19v5" stroke="#1b8cff" stroke-width="2" stroke-linecap="round"/>
+        <path d="M11 20.5l-2.5 3" stroke="#1b8cff" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M21 20.5l2.5 3" stroke="#1b8cff" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>Steam<em>linker</em></span>
+    </div>
+    <h2>Panel Administrativo</h2>
+    <p>Accede con tus credenciales de administrador</p>
+    <div class="field">
+      <label>Email / Usuario</label>
+      <input type="email" id="login-email" placeholder="admin@steamlinker.com" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Iniciar sesión</button>
+    <div id="login-error"></div>
+    <div class="login-url">
+      <label>URL del Backend</label>
+      <input type="text" id="login-url" placeholder="http://localhost:3000" value="">
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ APP ══════════════════════ -->
+<div id="app">
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <svg viewBox="0 0 22 22" fill="none">
+        <rect width="22" height="22" rx="5" fill="rgba(27,140,255,0.15)"/>
+        <path d="M5 11a6 6 0 1 1 12 0" stroke="#1b8cff" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="11" cy="11" r="2.2" fill="#1b8cff"/>
+        <path d="M11 13.2v3.5" stroke="#1b8cff" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>Steam<em>linker</em></span>
+      <small>admin</small>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">General</div>
+      <button class="nav-item active" onclick="nav('dashboard')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+        Dashboard
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Gestión</div>
+      <button class="nav-item" onclick="nav('usuarios')">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Usuarios
+        <span class="badge" id="badge-usuarios" style="display:none"></span>
+      </button>
+      <button class="nav-item" onclick="nav('familias')">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M1 14c0-2.8 2-5 4.5-5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M7.5 14c0-2.8 1.5-5 3-5s3 2.2 3 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Familias
+      </button>
+      <button class="nav-item" onclick="nav('solicitudes')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 8h6M5 5.5h4M5 10.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Solicitudes
+        <span class="badge" id="badge-solicitudes" style="display:none"></span>
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Moderación</div>
+      <button class="nav-item" onclick="nav('reportes')">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M8 2L2 13h12L8 2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 6v3.5M8 11v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Reportes
+        <span class="badge" id="badge-reportes" style="display:none"></span>
+      </button>
+      <button class="nav-item" onclick="nav('contenido')">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5" fill="var(--bg2)" stroke="currentColor" stroke-width="1.3"/><path d="M10.8 12l.9.9 1.5-1.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Contenido
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Sistema</div>
+      <button class="nav-item" onclick="nav('configuracion')">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.93 2.93l1.41 1.41M11.66 11.66l1.41 1.41M2.93 13.07l1.41-1.41M11.66 4.34l1.41-1.41" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Configuración
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="s-avatar">A</div>
+        <div>
+          <div class="user-name" id="s-name">Admin</div>
+          <div class="user-role">Administrador</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 5l3 3-3 3M14 8H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div id="main">
+    <div id="topbar">
+      <span id="page-title">Dashboard</span>
+      <span id="page-sub"></span>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+    <div id="content">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div class="section active" id="sec-dashboard">
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card accent-blue"><div class="label">Usuarios</div><div class="value" id="st-usuarios">—</div><div class="change" id="st-usuarios-c"></div></div>
+          <div class="stat-card accent-green"><div class="label">Familias formadas</div><div class="value" id="st-familias">—</div><div class="change" id="st-familias-c"></div></div>
+          <div class="stat-card accent-yellow"><div class="label">Solicitudes Pendientes</div><div class="value" id="st-solicitudes">—</div><div class="change" id="st-solicitudes-c"></div></div>
+          <div class="stat-card"><div class="label">Publicaciones</div><div class="value" id="st-publicaciones">—</div></div>
+          <div class="stat-card accent-red"><div class="label">Reportes Abiertos</div><div class="value" id="st-reportes">—</div><div class="change" id="st-reportes-c"></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Usuarios Recientes</span><button class="btn btn-ghost btn-sm" onclick="nav('usuarios')">Ver todos</button></div>
+            <div id="dash-usuarios-list"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Actividad Reciente</span></div>
+            <div id="dash-activity" class="card-body"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ USUARIOS ═══ -->
+      <div class="section" id="sec-usuarios">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Gestión de Usuarios</span>
+            <div class="card-actions">
+              <button class="btn btn-blue btn-sm" onclick="loadUsuarios()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 3.2 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 3l.2 2.5L5.7 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Actualizar
+              </button>
+            </div>
+          </div>
+          <div style="padding:10px 16px 0;">
+            <div class="filters-bar">
+              <div class="search-wrap">
+                <svg viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                <input type="text" id="usuarios-search" placeholder="Buscar por nombre, email o Steam ID…" oninput="filterUsuarios()">
+              </div>
+              <select class="filter-sel" id="usuarios-status" onchange="filterUsuarios()">
+                <option value="">Todos los tipos</option>
+                <option value="usuario">Usuario</option>
+                <option value="admin">Admin</option>
+                <option value="baneado">Baneados</option>
+                <option value="activo">Activos</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Usuario</th><th>Email</th><th>Nivel</th><th>Familias</th><th>Estado</th><th>Tipo</th><th>Registro</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="usuarios-tbody"><tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando usuarios…</p></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pag-info" id="usuarios-info"></span>
+            <button class="pag-btn" id="usuarios-prev" onclick="usuariosPag(-1)">← Prev</button>
+            <span id="usuarios-page-btns"></span>
+            <button class="pag-btn" id="usuarios-next" onclick="usuariosPag(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ FAMILIAS ═══ -->
+      <div class="section" id="sec-familias">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Gestión de Familias</span>
+            <div class="card-actions">
+              <button class="btn btn-blue btn-sm" onclick="loadFamilias()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 3.2 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 3l.2 2.5L5.7 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Actualizar
+              </button>
+            </div>
+          </div>
+          <div style="padding:10px 16px 0;">
+            <div class="filters-bar">
+              <div class="search-wrap">
+                <svg viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                <input type="text" id="familias-search" placeholder="Buscar por nombre o propietario…" oninput="filterFamilias()">
+              </div>
+              <select class="filter-sel" id="familias-status" onchange="filterFamilias()">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="aceptado">Aceptado</option>
+                <option value="rechazado">Rechazado</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Solicitante</th><th>Receptor</th><th>Estado</th><th>Fecha</th>
+              </tr></thead>
+              <tbody id="familias-tbody"><tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando familias…</p></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pag-info" id="familias-info"></span>
+            <button class="pag-btn" id="familias-prev" onclick="familiasPag(-1)">← Prev</button>
+            <span id="familias-page-btns"></span>
+            <button class="pag-btn" id="familias-next" onclick="familiasPag(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ SOLICITUDES ═══ -->
+      <div class="section" id="sec-solicitudes">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Solicitudes de Membresía</span>
+            <div class="card-actions">
+              <button class="btn btn-blue btn-sm" onclick="loadSolicitudes()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 3.2 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 3l.2 2.5L5.7 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Actualizar
+              </button>
+            </div>
+          </div>
+          <div style="padding:10px 16px 0;">
+            <div class="filters-bar">
+              <select class="filter-sel" id="solicitudes-status" onchange="filterSolicitudes()">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="aceptado">Aceptado</option>
+                <option value="rechazado">Rechazado</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Solicitante</th><th>Receptor</th><th>Estado</th><th>Fecha</th>
+              </tr></thead>
+              <tbody id="solicitudes-tbody"><tr><td colspan="6"><div class="loader"><div class="spinner"></div><p>Cargando solicitudes…</p></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pag-info" id="solicitudes-info"></span>
+            <button class="pag-btn" id="solicitudes-prev" onclick="solicitudesPag(-1)">← Prev</button>
+            <span id="solicitudes-page-btns"></span>
+            <button class="pag-btn" id="solicitudes-next" onclick="solicitudesPag(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ REPORTES ═══ -->
+      <div class="section" id="sec-reportes">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Reportes de Usuarios</span>
+            <div class="card-actions">
+              <button class="btn btn-blue btn-sm" onclick="loadReportes()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 3.2 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 3l.2 2.5L5.7 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Actualizar
+              </button>
+            </div>
+          </div>
+          <div style="padding:10px 16px 0;">
+            <div class="filters-bar">
+              <div class="search-wrap">
+                <svg viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                <input type="text" id="reportes-search" placeholder="Buscar por reportado o motivo…" oninput="filterReportes()">
+              </div>
+              <select class="filter-sel" id="reportes-status" onchange="filterReportes()">
+                <option value="">Todos</option>
+                <option value="abierto">Abiertos</option>
+                <option value="resuelto">Resueltos</option>
+                <option value="descartado">Descartados</option>
+              </select>
+
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Reportado</th><th>Reportador</th><th>Motivo</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="reportes-tbody"><tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando reportes…</p></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pag-info" id="reportes-info"></span>
+            <button class="pag-btn" id="reportes-prev" onclick="reportesPag(-1)">← Prev</button>
+            <span id="reportes-page-btns"></span>
+            <button class="pag-btn" id="reportes-next" onclick="reportesPag(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CONTENIDO ═══ -->
+      <div class="section" id="sec-contenido">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Moderación de Contenido</span>
+            <div class="card-actions">
+              <button class="btn btn-blue btn-sm" onclick="loadContenido()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 3.2 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 3l.2 2.5L5.7 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Actualizar
+              </button>
+            </div>
+          </div>
+          <div style="padding:10px 16px 0;">
+            <div class="filters-bar">
+              <div class="search-wrap">
+                <svg viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                <input type="text" id="contenido-search" placeholder="Buscar en contenido…" oninput="filterContenido()">
+              </div>
+              <select class="filter-sel" id="contenido-tipo" onchange="filterContenido()">
+                <option value="">Todos los tipos</option>
+                <option value="publicacion">Publicación</option>
+                <option value="reseña">Reseña</option>
+                <option value="comentario">Comentario</option>
+              </select>
+              <select class="filter-sel" id="contenido-estado" onchange="filterContenido()">
+                <option value="">Todos</option>
+                <option value="pendiente">Pendiente revisión</option>
+                <option value="aprobado">Aprobado</option>
+                <option value="rechazado">Rechazado</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Tipo</th><th>Autor</th><th>Título</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
+              </tr></thead>
+              <tbody id="contenido-tbody"><tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando contenido…</p></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pag-info" id="contenido-info"></span>
+            <button class="pag-btn" id="contenido-prev" onclick="contenidoPag(-1)">← Prev</button>
+            <span id="contenido-page-btns"></span>
+            <button class="pag-btn" id="contenido-next" onclick="contenidoPag(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ CONFIGURACIÓN ═══ -->
+      <div class="section" id="sec-configuracion">
+        <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:16px;">
+          <div>
+            <div class="card" style="margin-bottom:16px;">
+              <div class="card-header"><span class="card-title">Conexión al Backend</span></div>
+              <div class="card-body">
+                <div class="config-grid">
+                  <div class="config-row">
+                    <label>URL Base del API</label>
+                    <input type="text" id="cfg-url" placeholder="http://localhost:3000">
+                    <div class="hint">Ej: http://localhost:3000 · https://api.tudominio.com</div>
+                  </div>
+                  <div class="config-row">
+                    <label>Prefijo de rutas admin</label>
+                    <input type="text" id="cfg-prefix" placeholder="/api/admin">
+                    <div class="hint">Prefijo para todos los endpoints del panel</div>
+                  </div>
+                </div>
+                <div style="margin-top:14px;display:flex;gap:8px;">
+                  <button class="btn btn-blue" onclick="saveConfig()">Guardar configuración</button>
+                  <button class="btn btn-ghost" onclick="testConnection()">Probar conexión</button>
+                </div>
+                <div id="conn-result" style="margin-top:10px;font-size:12px;"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><span class="card-title">Sesión Actual</span></div>
+              <div class="card-body">
+                <div class="detail-grid" style="grid-template-columns:1fr;">
+                  <div class="detail-field"><div class="df-label">Token JWT</div><div class="df-value mono" id="cfg-token" style="word-break:break-all;font-size:10px;"></div></div>
+                  <div class="detail-field"><div class="df-label">Expiración</div><div class="df-value" id="cfg-exp">—</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Mapa de Endpoints</span><span style="font-size:10px;color:var(--t3);margin-left:8px;">Ajusta estos según tu backend</span></div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-wrap">
+                <table class="endpoints-table">
+                  <thead><tr><th>Módulo</th><th>Ruta configurada</th></tr></thead>
+                  <tbody id="endpoints-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card-body" style="border-top:1px solid var(--border);padding-top:14px;">
+              <p style="font-size:11px;color:var(--t3);line-height:1.7;">
+                Si tus endpoints difieren de los predeterminados, edita <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;">ENDPOINTS</code> en el script de esta página.<br>
+                El token se envía en el header <code style="background:var(--bg3);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:10px;">Authorization: Bearer &lt;token&gt;</code>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end #content -->
+  </div><!-- end #main -->
+</div><!-- end #app -->
+
+<!-- ─── MODAL CONFIRMACIÓN ─── -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <svg id="modal-icon" width="18" height="18" viewBox="0 0 18 18" fill="none"></svg>
+      <h3 id="modal-title">Confirmar acción</h3>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-red" id="modal-confirm-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOASTS ─── -->
+<div id="toasts"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  CONFIGURACIÓN — ajusta aquí tus endpoints reales
+// ══════════════════════════════════════════════════════════
+let BASE_URL = localStorage.getItem('sl_base_url') || 'http://localhost:3000';
+let ROUTE_PREFIX = localStorage.getItem('sl_prefix') || '/api/admin';
+
+const ENDPOINTS = {
+  login:         () => `${BASE_URL}/auth/login`,
+  stats:         () => `${BASE_URL}${ROUTE_PREFIX}/estadisticas`,
+  usuarios:      () => `${BASE_URL}${ROUTE_PREFIX}/usuarios`,
+  usuario:       (id) => `${BASE_URL}${ROUTE_PREFIX}/usuarios/${id}`,
+  banUsuario:    (id) => `${BASE_URL}${ROUTE_PREFIX}/usuarios/${id}/ban`,
+  unbanUsuario:  (id) => `${BASE_URL}${ROUTE_PREFIX}/usuarios/${id}/unban`,
+  familias:      () => `${BASE_URL}${ROUTE_PREFIX}/familias`,
+  solicitudes:   () => `${BASE_URL}${ROUTE_PREFIX}/solicitudes`,
+  reportes:      () => `${BASE_URL}${ROUTE_PREFIX}/reportes`,
+  reporte:       (id) => `${BASE_URL}${ROUTE_PREFIX}/reportes/${id}`,
+  contenido:     () => `${BASE_URL}${ROUTE_PREFIX}/contenido`,
+  contenidoItem:(id) => `${BASE_URL}${ROUTE_PREFIX}/contenido/${id}`,
+};
+
+// ══════════════════════════════════════════════════════════
+//  ESTADO
+// ══════════════════════════════════════════════════════════
+let token = localStorage.getItem('sl_token') || null;
+let adminUser = JSON.parse(localStorage.getItem('sl_admin') || 'null');
+
+// datos cacheados
+let data = { usuarios:[], familias:[], solicitudes:[], reportes:[], contenido:[] };
+let filtered = { usuarios:[], familias:[], solicitudes:[], reportes:[], contenido:[] };
+let pages = { usuarios:1, familias:1, solicitudes:1, reportes:1, contenido:1 };
+const PER_PAGE = 15;
+
+// ══════════════════════════════════════════════════════════
+//  API HELPER
+// ══════════════════════════════════════════════════════════
+async function api(method, url, body=null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type':'application/json' }
+  };
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  let json = null;
+  try { json = await res.json(); } catch(e) {}
+  if (!res.ok) {
+    if (res.status === 401) { doLogout(); return null; }
+    const msg = (json && (json.message || json.error)) || `HTTP ${res.status}`;
+    throw new Error(`${msg} → ${method} ${url}`);
+  }
+  return json;
+}
+
+// ══════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════
+function toast(msg, type='info') {
+  const icons = {
+    ok: '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M5 8l2.2 2.2L11 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    err: '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+    info: '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.5v4M8 5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+  };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = (icons[type]||icons.info) + `<span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ══════════════════════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════════════════════
+let modalCb = null;
+function showModal(title, body, label='Confirmar', type='red', cb) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = body;
+  const btn = document.getElementById('modal-confirm-btn');
+  btn.className = `btn btn-${type}`;
+  btn.textContent = label;
+  modalCb = cb;
+  btn.onclick = () => { closeModal(); cb(); };
+  document.getElementById('confirm-modal').classList.add('open');
+}
+function closeModal() { document.getElementById('confirm-modal').classList.remove('open'); }
+
+// ══════════════════════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ══════════════════════════════════════════════════════════
+document.getElementById('login-url').value = BASE_URL;
+
+document.getElementById('login-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+
+
+function doLogout() {
+  localStorage.removeItem('sl_token');
+  localStorage.removeItem('sl_admin');
+  token = null; adminUser = null;
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
+// Restaurar sesión si hay token
+
+
+// ══════════════════════════════════════════════════════════
+//  NAV
+// ══════════════════════════════════════════════════════════
+const sectionTitles = {
+  dashboard:     ['Dashboard', ''],
+  usuarios:      ['Usuarios', '· gestión de cuentas'],
+  familias:      ['Familias', '· grupos Steam'],
+  solicitudes:   ['Solicitudes', '· peticiones de membresía'],
+  reportes:      ['Reportes', '· incidencias'],
+  contenido:     ['Contenido', '· moderación'],
+  configuracion: ['Configuración', '· conexión y endpoints'],
+};
+
+function nav(section) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + section)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick')?.includes(`'${section}'`)) n.classList.add('active');
+  });
+  const titles = sectionTitles[section] || [section, ''];
+  document.getElementById('page-title').textContent = titles[0];
+  document.getElementById('page-sub').textContent = titles[1];
+  document.getElementById('topbar-actions').innerHTML = '';
+
+  if (section === 'dashboard') loadDashboard();
+  if (section === 'usuarios') loadUsuarios();
+  if (section === 'familias') loadFamilias();
+  if (section === 'solicitudes') loadSolicitudes();
+  if (section === 'reportes') loadReportes();
+  if (section === 'contenido') loadContenido();
+  if (section === 'configuracion') loadConfig();
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const url   = document.getElementById('login-url').value.trim();
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
+
+  if (!email || !pass) { errEl.textContent = 'Completa todos los campos.'; return; }
+
+  if (url) {
+    BASE_URL = url;
+    localStorage.setItem('sl_base_url', url);
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Iniciando sesión…';
+  errEl.textContent = '';
+
+  try {
+    const res = await fetch(ENDPOINTS.login(), {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email, password:pass })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || json.error || 'Credenciales incorrectas');
+
+    token = json.token || json.access_token || json.data?.token;
+    if (!token) throw new Error('No se recibió token. Revisa la respuesta del servidor.');
+
+    adminUser = json.usuario || json.admin || json.data?.user || { email };
+    localStorage.setItem('sl_token', token);
+    localStorage.setItem('sl_admin', JSON.stringify(adminUser));
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+
+    const name = adminUser.nombre || adminUser.name || adminUser.username || adminUser.email || 'Admin';
+    document.getElementById('s-name').textContent = name;
+    document.getElementById('s-avatar').textContent = name[0].toUpperCase();
+
+    nav('dashboard');
+  } catch(e) {
+    errEl.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Iniciar sesión';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  HELPERS
+
+function pick(obj, keys, fallback='—') {
+  for (const key of keys) {
+    const value = key.split('.').reduce((o, k) => o && o[k], obj);
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return fallback;
+}
+
+function normalizeArray(res) {
+  // El backend devuelve el array directamente (resultado.rows)
+  if (Array.isArray(res)) return res;
+  return (
+    res?.data?.usuarios ||
+    res?.data?.users ||
+    res?.usuarios ||
+    res?.users ||
+    res?.results ||
+    res?.data ||
+    []
+  );
+}
+
+async function tryMultipleRequests(requests) {
+  let lastError = null;
+
+  for (const req of requests) {
+    try {
+      return await api(req.method, req.url, req.body || null);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  throw lastError || new Error('No se pudo completar la acción');
+}
+
+// ══════════════════════════════════════════════════════════
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){return d;}
+}
+function fmtDateTime(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleString('es-CO',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); } catch(e){return d;}
+}
+function initials(name='') { return (name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function truncate(s, n=40) { return s && s.length > n ? s.slice(0, n) + '…' : s || '—'; }
+
+function statusBadge(s) {
+  const map = {
+    activo:'green', active:'green', activado:'green',
+    baneado:'red', banned:'red', bloqueado:'red',
+    pendiente:'yellow', pending:'yellow',
+    aceptada:'green', accepted:'green', aprobado:'green', approved:'green',
+    rechazada:'red', rejected:'red', rechazado:'red',
+    abierto:'yellow', open:'yellow',
+    resuelto:'blue', resolved:'blue',
+    descartado:'gray', discarded:'gray', cerrado:'gray', closed:'gray',
+    abierta:'green',
+    llena:'orange', full:'orange',
+  };
+  const c = map[(s||'').toLowerCase()] || 'gray';
+  return `<span class="badge badge-${c}">${s||'—'}</span>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PAGINACIÓN GENÉRICA
+// ══════════════════════════════════════════════════════════
+function paginate(arr, page, perPage=PER_PAGE) {
+  const total = arr.length;
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  const p = Math.min(Math.max(1, page), pages);
+  return { items: arr.slice((p-1)*perPage, p*perPage), page:p, pages, total };
+}
+
+function renderPagination(key, idPrefix, loadFn) {
+
+  const pagination = paginate(filtered[key], pages[key]);
+
+  const items = pagination.items;
+  const page = pagination.page;
+  const totalPages = pagination.pages;
+  const total = pagination.total;
+
+  pages[key] = page;
+
+  const infoEl = document.getElementById(`${idPrefix}-info`);
+  const prevEl = document.getElementById(`${idPrefix}-prev`);
+  const nextEl = document.getElementById(`${idPrefix}-next`);
+  const btnsEl = document.getElementById(`${idPrefix}-page-btns`);
+
+  if (infoEl)
+    infoEl.textContent = `${total} registros`;
+
+  if (prevEl)
+    prevEl.disabled = page <= 1;
+
+  if (nextEl)
+    nextEl.disabled = page >= totalPages;
+
+  if (btnsEl) {
+
+    let html = '';
+
+    for (let i = 1; i <= totalPages; i++) {
+
+      if (
+        i === 1 ||
+        i === totalPages ||
+        Math.abs(i - page) <= 1
+      ) {
+
+        html += `
+          <button
+            class="pag-btn${i === page ? ' active' : ''}"
+            onclick="goPage('${key}','${idPrefix}',${i})"
+          >
+            ${i}
+          </button>
+        `;
+
+      } else if (Math.abs(i - page) === 2) {
+
+        html += `
+          <span
+            style="color:var(--t3);padding:0 2px;font-size:11px;"
+          >
+            …
+          </span>
+        `;
+      }
+    }
+
+    btnsEl.innerHTML = html;
+  }
+
+  return items;
+}
+
+function goPage(key, pfx, p) {
+  pages[key] = p;
+  if (key==='usuarios') renderUsuarios();
+  if (key==='familias') renderFamilias();
+  if (key==='solicitudes') renderSolicitudes();
+  if (key==='reportes') renderReportes();
+  if (key==='contenido') renderContenido();
+}
+function usuariosPag(d){ pages.usuarios=Math.max(1,pages.usuarios+d); renderUsuarios(); }
+function familiasPag(d){ pages.familias=Math.max(1,pages.familias+d); renderFamilias(); }
+function solicitudesPag(d){ pages.solicitudes=Math.max(1,pages.solicitudes+d); renderSolicitudes(); }
+function reportesPag(d){ pages.reportes=Math.max(1,pages.reportes+d); renderReportes(); }
+function contenidoPag(d){ pages.contenido=Math.max(1,pages.contenido+d); renderContenido(); }
+
+// ══════════════════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const stats = await api('GET', ENDPOINTS.stats());
+    if (stats) {
+      const s = stats.data || stats;
+      document.getElementById('st-usuarios').textContent    = (s.totalUsuarios   ?? '—').toLocaleString();
+      document.getElementById('st-familias').textContent    = (s.totalPublicaciones ?? '—').toLocaleString();
+      document.getElementById('st-solicitudes').textContent = '—'; // no en backend
+      document.getElementById('st-reportes').textContent    = (s.totalReportes   ?? '—').toLocaleString();
+    }
+  } catch(e) {
+    // stats pueden no existir aún, no bloquear
+  }
+
+  // Usuarios recientes
+  try {
+    const res = await api('GET', ENDPOINTS.usuarios() + '?limit=5&sort=-createdAt');
+    const lista = (res?.data || res?.usuarios || res || []).slice(0,5);
+    const el = document.getElementById('dash-usuarios-list');
+    if (!lista.length) { el.innerHTML = '<div class="empty"><p>Sin datos</p></div>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Usuario</th><th>Email</th><th>Estado</th><th>Registro</th></tr></thead><tbody>${
+      lista.map(u => {
+        const name = u.nombre||u.name||u.username||u.steamName||'—';
+        const email = pick(u,['email','correo','email_usu','mail'],'—');
+        const estado = u.estado||u.status||'activo';
+        const fecha = u.createdAt||u.fechaRegistro||u.created_at;
+        return `<tr>
+          <td><div class="user-cell"><div class="avatar-txt">${initials(name)}</div><span>${name}</span></div></td>
+          <td class="mono">${email}</td>
+          <td>${statusBadge(estado)}</td>
+          <td class="mono">${fmtDate(fecha)}</td>
+        </tr>`;
+      }).join('')
+    }</tbody></table>`;
+  } catch(e) {
+    document.getElementById('dash-usuarios-list').innerHTML = `<div class="empty"><p>No se pudo cargar. ${e.message}</p></div>`;
+  }
+
+  // Actividad simulada con datos reales de reportes/solicitudes
+  document.getElementById('dash-activity').innerHTML = `
+    <div class="activity-item"><div class="activity-dot blue"></div><div class="activity-text">Panel administrativo iniciado<span> — conectado a ${BASE_URL}</span></div><div class="activity-time">ahora</div></div>
+    <div class="activity-item"><div class="activity-dot green"></div><div class="activity-text">Sesión autenticada con JWT</div><div class="activity-time">ahora</div></div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════
+//  USUARIOS
+// ══════════════════════════════════════════════════════════
+async function loadUsuarios() {
+  document.getElementById('usuarios-tbody').innerHTML = '<tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr>';
+  try {
+    const res = await api('GET', ENDPOINTS.usuarios());
+    data.usuarios = normalizeArray(res);
+    filterUsuarios();
+  } catch(e) {
+    document.getElementById('usuarios-tbody').innerHTML = `<tr><td colspan="7"><div class="empty"><p>Error: ${e.message}</p></div></td></tr>`;
+    toast(e.message, 'err');
+  }
+}
+
+function filterUsuarios() {
+  const q  = (document.getElementById('usuarios-search')?.value||'').toLowerCase();
+  const st = document.getElementById('usuarios-status')?.value||'';
+  filtered.usuarios = data.usuarios.filter(u => {
+    const name  = (u.username_usu||'').toLowerCase();
+    const email = (u.email_usu||'').toLowerCase();
+    const pais  = (u.pais_usu||'').toLowerCase();
+    const matchQ  = !q || name.includes(q) || email.includes(q) || pais.includes(q);
+    const tipo    = (u.tipo_usu||'usuario').toLowerCase();
+    const matchSt = !st || tipo === st;
+    return matchQ && matchSt;
+  });
+  pages.usuarios = 1;
+  renderUsuarios();
+}
+
+function renderUsuarios() {
+  const items = renderPagination('usuarios', 'usuarios', renderUsuarios);
+  if (!items.length) {
+    document.getElementById('usuarios-tbody').innerHTML = '<tr><td colspan="6"><div class="empty"><p>No se encontraron usuarios</p></div></td></tr>';
+    return;
+  }
+  document.getElementById('usuarios-tbody').innerHTML = items.map(u => {
+    const id    = u.id_usu || '?';
+    const name  = u.username_usu || '—';
+    const email = u.email_usu    || '—';
+    const pais  = u.pais_usu     || '—';
+    const tipo  = (u.tipo_usu    || 'usuario').toLowerCase();
+    const fecha = u.creadoen_usu || null;
+    return `<tr>
+      <td><div class="user-cell"><div class="avatar-txt">${initials(name)}</div><div><div>${name}</div><div class="mono" style="font-size:10px;">#${id}</div></div></div></td>
+      <td class="mono">${email}</td>
+      <td>${pais}</td>
+      <td>${statusBadge(tipo)}</td>
+      <td class="mono">${fmtDate(fecha)}</td>
+      <td>
+        <div style="display:flex;gap:5px;">
+          <span class="mono" style="font-size:10px;color:var(--t3);">${tipo}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function accionUsuario(accion, id, name) {
+  const cfg = {
+    ban:    { title:`Banear a ${name}`, body:`¿Seguro que quieres banear a <strong>${name}</strong>? No podrá acceder hasta ser desbaneado.`, label:'Banear', type:'yellow' },
+    unban:  { title:`Desbanear a ${name}`, body:`¿Deseas restaurar el acceso de <strong>${name}</strong>?`, label:'Desbanear', type:'green' },
+    delete: { title:`Eliminar a ${name}`, body:`Esta acción es <strong>irreversible</strong>. Se eliminarán todos los datos de <strong>${name}</strong>.`, label:'Eliminar', type:'red' },
+  }[accion];
+  showModal(cfg.title, cfg.body, cfg.label, cfg.type, async () => {
+    try {
+      if (accion === 'ban') {
+        // Intentar POST primero (ruta configurada), luego PUT y PATCH como fallback
+        const url = ENDPOINTS.banUsuario(id);
+        let ok = false;
+        for (const method of ['POST','PUT','PATCH']) {
+          try { await api(method, url); ok = true; break; } catch(e) { /* siguiente */ }
+        }
+        if (!ok) throw new Error(`No se pudo banear. Verifica que tu backend expone: POST/PUT ${url}`);
+      }
+
+      if (accion === 'unban') {
+        const url = ENDPOINTS.unbanUsuario(id);
+        let ok = false;
+        for (const method of ['POST','PUT','PATCH']) {
+          try { await api(method, url); ok = true; break; } catch(e) { /* siguiente */ }
+        }
+        if (!ok) throw new Error(`No se pudo desbanear. Verifica que tu backend expone: POST/PUT ${url}`);
+      }
+
+      if (accion === 'delete') {
+        const url = ENDPOINTS.usuario(id);
+        let ok = false;
+        for (const method of ['DELETE','POST']) {
+          try { await api(method, url); ok = true; break; } catch(e) { /* siguiente */ }
+        }
+        if (!ok) throw new Error(`No se pudo eliminar. Verifica que tu backend expone: DELETE ${url}`);
+      }
+      toast(`${name}: acción completada`, 'ok');
+      loadUsuarios();
+    } catch(e) { toast(e.message, 'err'); }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  FAMILIAS
+// ══════════════════════════════════════════════════════════
+async function loadFamilias() {
+  document.getElementById('familias-tbody').innerHTML = '<tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr>';
+  try {
+    const res = await api('GET', ENDPOINTS.familias());
+    data.familias = Array.isArray(res) ? res : (res?.data || res?.familias || []);
+    filterFamilias();
+  } catch(e) {
+    document.getElementById('familias-tbody').innerHTML = `<tr><td colspan="7"><div class="empty"><p>Error: ${e.message}</p></div></td></tr>`;
+    toast(e.message, 'err');
+  }
+}
+
+function filterFamilias() {
+  const q  = (document.getElementById('familias-search')?.value||'').toLowerCase();
+  const st = document.getElementById('familias-status')?.value||'';
+  filtered.familias = data.familias.filter(f => {
+    const sol  = (f.solicitante||'').toLowerCase();
+    const rec  = (f.receptor||'').toLowerCase();
+    const matchQ  = !q || sol.includes(q) || rec.includes(q);
+    const estado  = (f.estado_match||'').toLowerCase();
+    const matchSt = !st || estado === st;
+    return matchQ && matchSt;
+  });
+  pages.familias = 1;
+  renderFamilias();
+}
+
+function renderFamilias() {
+  const items = renderPagination('familias', 'familias', renderFamilias);
+  if (!items.length) {
+    document.getElementById('familias-tbody').innerHTML = '<tr><td colspan="5"><div class="empty"><p>No se encontraron matches</p></div></td></tr>';
+    return;
+  }
+  document.getElementById('familias-tbody').innerHTML = items.map(f => {
+    const id        = f.id_match || '?';
+    const sol       = f.solicitante  || '—';
+    const rec       = f.receptor     || '—';
+    const estado    = f.estado_match || '—';
+    const fecha     = f.creadoen_match || null;
+    return `<tr>
+      <td><div class="mono" style="font-size:10px;">#${id}</div></td>
+      <td>${sol}</td>
+      <td>${rec}</td>
+      <td>${statusBadge(estado)}</td>
+      <td class="mono">${fmtDate(fecha)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function deleteFamily(id, name) {
+  showModal(`Eliminar familia "${name}"`, `¿Eliminar la familia <strong>${name}</strong>? Los miembros quedarán sin familia.`, 'Eliminar', 'red', async () => {
+    try {
+      await api('DELETE', ENDPOINTS.familia(id));
+      toast(`Familia "${name}" eliminada`, 'ok');
+      loadFamilias();
+    } catch(e) { toast(e.message, 'err'); }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  SOLICITUDES
+// ══════════════════════════════════════════════════════════
+async function loadSolicitudes() {
+  document.getElementById('solicitudes-tbody').innerHTML = '<tr><td colspan="6"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr>';
+  try {
+    const res = await api('GET', ENDPOINTS.solicitudes());
+    data.solicitudes = Array.isArray(res) ? res : (res?.data || res?.solicitudes || []);
+    const pendientes = data.solicitudes.filter(s => (s.estado||s.status||'').toLowerCase() === 'pendiente').length;
+    const badge = document.getElementById('badge-solicitudes');
+    if (pendientes > 0) { badge.style.display=''; badge.textContent=pendientes; }
+    else badge.style.display='none';
+    filterSolicitudes();
+  } catch(e) {
+    document.getElementById('solicitudes-tbody').innerHTML = `<tr><td colspan="6"><div class="empty"><p>Error: ${e.message}</p></div></td></tr>`;
+    toast(e.message, 'err');
+  }
+}
+
+function filterSolicitudes() {
+  const st = document.getElementById('solicitudes-status')?.value||'';
+  filtered.solicitudes = data.solicitudes.filter(s => {
+    const matchSt = !st || (s.estado_match||'').toLowerCase() === st;
+    return matchSt;
+  });
+  pages.solicitudes = 1;
+  renderSolicitudes();
+}
+
+function renderSolicitudes() {
+  const items = renderPagination('solicitudes', 'solicitudes', renderSolicitudes);
+  if (!items.length) {
+    document.getElementById('solicitudes-tbody').innerHTML = '<tr><td colspan="3"><div class="empty"><p>No hay solicitudes</p></div></td></tr>';
+    return;
+  }
+  document.getElementById('solicitudes-tbody').innerHTML = items.map(s => {
+    const id     = s.id_match      || '?';
+    const estado = s.estado_match  || '—';
+    const fecha  = s.creadoen_match|| null;
+    return `<tr>
+      <td><span class="mono">#${id}</span></td>
+      <td>${statusBadge(estado)}</td>
+      <td class="mono">${fmtDate(fecha)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function accionSolicitud(estado, id) {
+  if (estado === 'delete') {
+    showModal('Eliminar solicitud', '¿Eliminar esta solicitud permanentemente?', 'Eliminar', 'red', async () => {
+      try { await api('DELETE', ENDPOINTS.solicitud(id)); toast('Solicitud eliminada','ok'); loadSolicitudes(); }
+      catch(e) { toast(e.message,'err'); }
+    });
+  } else {
+    try {
+      await api('PUT', ENDPOINTS.solicitud(id), { estado });
+      toast(`Solicitud ${estado}`, 'ok');
+      loadSolicitudes();
+    } catch(e) { toast(e.message,'err'); }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  REPORTES
+// ══════════════════════════════════════════════════════════
+async function loadReportes() {
+  document.getElementById('reportes-tbody').innerHTML = '<tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr>';
+  try {
+    const res = await api('GET', ENDPOINTS.reportes());
+    data.reportes = Array.isArray(res) ? res : (res?.data || res?.reportes || []);
+    const abiertos = data.reportes.filter(r => (r.estado_repor||'').toLowerCase() === 'abierto').length;
+    const badge = document.getElementById('badge-reportes');
+    if (abiertos > 0) { badge.style.display=''; badge.textContent=abiertos; }
+    else badge.style.display='none';
+    filterReportes();
+  } catch(e) {
+    document.getElementById('reportes-tbody').innerHTML = `<tr><td colspan="7"><div class="empty"><p>Error: ${e.message}</p></div></td></tr>`;
+    toast(e.message, 'err');
+  }
+}
+
+function filterReportes() {
+  const q    = (document.getElementById('reportes-search')?.value||'').toLowerCase();
+  const st   = document.getElementById('reportes-status')?.value||'';
+  filtered.reportes = data.reportes.filter(r => {
+    const rep  = (r.reportado||'').toLowerCase();
+    const repor = (r.reportador||'').toLowerCase();
+    const mot  = (r.motivo_repor||'').toLowerCase();
+    const matchQ    = !q || rep.includes(q) || repor.includes(q) || mot.includes(q);
+    const matchSt   = !st || (r.estado_repor||'').toLowerCase() === st;
+    return matchQ && matchSt;
+  });
+  pages.reportes = 1;
+  renderReportes();
+}
+
+function renderReportes() {
+  const items = renderPagination('reportes', 'reportes', renderReportes);
+  if (!items.length) {
+    document.getElementById('reportes-tbody').innerHTML = '<tr><td colspan="6"><div class="empty"><p>No se encontraron reportes</p></div></td></tr>';
+    return;
+  }
+  document.getElementById('reportes-tbody').innerHTML = items.map(r => {
+    const id     = r.id_repor || '?';
+    const rep    = r.reportado    || '—';
+    const by     = r.reportador   || '—';
+    const motivo = r.motivo_repor || '—';
+    const estado = r.estado_repor || '—';
+    const fecha  = r.creadoen_repor || null;
+    return `<tr>
+      <td><div class="user-cell"><div class="avatar-txt">${initials(rep)}</div>${rep}</div></td>
+      <td>${by}</td>
+      <td style="max-width:200px;">${truncate(motivo, 50)}</td>
+      <td>${statusBadge(estado)}</td>
+      <td class="mono">${fmtDateTime(fecha)}</td>
+      <td><span class="mono" style="font-size:10px;color:var(--t3);">#${id}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function accionReporte(estado, id) {
+  if (estado === 'delete') {
+    showModal('Eliminar reporte','¿Eliminar este reporte permanentemente?','Eliminar','red', async () => {
+      try { await api('DELETE', ENDPOINTS.reporte(id)); toast('Reporte eliminado','ok'); loadReportes(); }
+      catch(e){ toast(e.message,'err'); }
+    });
+  } else {
+    try {
+      await api('PUT', ENDPOINTS.reporte(id), { estado });
+      toast(`Reporte marcado como "${estado}"`, 'ok');
+      loadReportes();
+    } catch(e){ toast(e.message,'err'); }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTENIDO
+// ══════════════════════════════════════════════════════════
+async function loadContenido() {
+  document.getElementById('contenido-tbody').innerHTML = '<tr><td colspan="7"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr>';
+  try {
+    const res = await api('GET', ENDPOINTS.contenido());
+    data.contenido = Array.isArray(res) ? res : (res?.data || res?.contenido || []);
+    filterContenido();
+  } catch(e) {
+    document.getElementById('contenido-tbody').innerHTML = `<tr><td colspan="7"><div class="empty"><p>Error: ${e.message}</p></div></td></tr>`;
+    toast(e.message, 'err');
+  }
+}
+
+function filterContenido() {
+  const q      = (document.getElementById('contenido-search')?.value||'').toLowerCase();
+  const tipo   = document.getElementById('contenido-tipo')?.value||'';
+  const estado = document.getElementById('contenido-estado')?.value||'';
+  filtered.contenido = data.contenido.filter(c => {
+    const titulo = (c.titulo_publi||'').toLowerCase();
+    const autor  = (c.username_usu||'').toLowerCase();
+    const matchQ = !q     || titulo.includes(q) || autor.includes(q);
+    const matchT = !tipo  || (c.tipo_publi||'').toLowerCase() === tipo;
+    const matchE = !estado|| (c.estado_publi||'').toLowerCase() === estado;
+    return matchQ && matchT && matchE;
+  });
+  pages.contenido = 1;
+  renderContenido();
+}
+
+function renderContenido() {
+  const items = renderPagination('contenido', 'contenido', renderContenido);
+  if (!items.length) {
+    document.getElementById('contenido-tbody').innerHTML = '<tr><td colspan="6"><div class="empty"><p>No hay contenido para moderar</p></div></td></tr>';
+    return;
+  }
+  document.getElementById('contenido-tbody').innerHTML = items.map(c => {
+    const id     = c.id_publi       || '?';
+    const titulo = c.titulo_publi   || '—';
+    const tipo   = c.tipo_publi     || '—';
+    const estado = c.estado_publi   || '—';
+    const autor  = c.username_usu   || '—';
+    const fecha  = c.creadoen_publi || null;
+    return `<tr>
+      <td>${statusBadge(tipo)}</td>
+      <td>${autor}</td>
+      <td style="max-width:220px;">${truncate(titulo, 60)}</td>
+      <td>${statusBadge(estado)}</td>
+      <td class="mono">${fmtDate(fecha)}</td>
+      <td><span class="mono" style="font-size:10px;color:var(--t3);">#${id}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function accionContenido(estado, id) {
+  if (estado === 'delete') {
+    showModal('Eliminar contenido','¿Eliminar este ítem de contenido?','Eliminar','red', async () => {
+      try { await api('DELETE', ENDPOINTS.contenidoItem(id)); toast('Contenido eliminado','ok'); loadContenido(); }
+      catch(e){ toast(e.message,'err'); }
+    });
+  } else {
+    try {
+      await api('PUT', ENDPOINTS.contenidoItem(id), { estado });
+      toast(`Contenido ${estado}`, 'ok');
+      loadContenido();
+    } catch(e){ toast(e.message,'err'); }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONFIGURACIÓN
+// ══════════════════════════════════════════════════════════
+function loadConfig() {
+  document.getElementById('cfg-url').value    = BASE_URL;
+  document.getElementById('cfg-prefix').value = ROUTE_PREFIX;
+
+  if (token) {
+    document.getElementById('cfg-token').textContent = token.slice(0,30) + '…' + token.slice(-10);
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp ? new Date(payload.exp*1000).toLocaleString('es-CO') : '—';
+      document.getElementById('cfg-exp').textContent = exp;
+    } catch(e) { document.getElementById('cfg-exp').textContent = '—'; }
+  }
+
+  const endpointsList = [
+    ['POST', 'Login',         ENDPOINTS.login()],
+    ['GET',  'Estadísticas',  ENDPOINTS.stats()],
+    ['GET',  'Usuarios',      ENDPOINTS.usuarios()],
+    ['GET',  'Familias/Matches', ENDPOINTS.familias()],
+    ['GET',  'Solicitudes',   ENDPOINTS.solicitudes()],
+    ['GET',  'Reportes',      ENDPOINTS.reportes()],
+    ['GET',  'Contenido',     ENDPOINTS.contenido()],
+  ];
+
+  document.getElementById('endpoints-tbody').innerHTML = endpointsList.map(([m, label, url]) =>
+    `<tr><td style="padding:6px 12px;"><span class="method ${m}">${m}</span>${label}</td><td style="padding:6px 12px;">${url}</td></tr>`
+  ).join('');
+}
+
+function saveConfig() {
+  BASE_URL      = document.getElementById('cfg-url').value.trim();
+  ROUTE_PREFIX  = document.getElementById('cfg-prefix').value.trim();
+  localStorage.setItem('sl_base_url',  BASE_URL);
+  localStorage.setItem('sl_prefix',    ROUTE_PREFIX);
+  loadConfig();
+  toast('Configuración guardada', 'ok');
+}
+
+async function testConnection() {
+  const el = document.getElementById('conn-result');
+  el.textContent = 'Probando…';
+  el.style.color = 'var(--t2)';
+  try {
+    const start = Date.now();
+    const res = await fetch(BASE_URL, { method:'GET', signal: AbortSignal.timeout(5000) });
+    const ms  = Date.now() - start;
+    el.textContent = `✓ Respuesta en ${ms}ms (HTTP ${res.status})`;
+    el.style.color = 'var(--green)';
+  } catch(e) {
+    el.textContent = `✗ No se pudo conectar: ${e.message}`;
+    el.style.color = 'var(--red)';
+  }
+}
+
+if (token) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  const name = adminUser?.nombre || adminUser?.name || adminUser?.email || 'Admin';
+  document.getElementById('s-name').textContent = name;
+  document.getElementById('s-avatar').textContent = name[0].toUpperCase();
+  nav('dashboard');
+  loadDashboard();
+}
+
+</script>
+  <script src="admin-panel.js"></script>
+</body>
+</html>

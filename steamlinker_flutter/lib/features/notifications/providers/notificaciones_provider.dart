@@ -47,7 +47,7 @@ class NotificacionesProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cargar notificaciones';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar notificaciones');
       _cargando = false;
       notifyListeners();
     }
@@ -64,7 +64,7 @@ class NotificacionesProvider extends ChangeNotifier {
       }
       await cargarContador();
     } on DioException catch (e) {
-      _error = e.response?.data['error'];
+      _error = ApiClient.errorMessage(e, fallback: 'Error');
       notifyListeners();
     }
   }
@@ -78,7 +78,7 @@ class NotificacionesProvider extends ChangeNotifier {
       _noLeidas = 0;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'];
+      _error = ApiClient.errorMessage(e, fallback: 'Error');
       notifyListeners();
     }
   }
@@ -94,7 +94,7 @@ class NotificacionesProvider extends ChangeNotifier {
         notifyListeners();
       }
     } on DioException catch (e) {
-      _error = e.response?.data['error'];
+      _error = ApiClient.errorMessage(e, fallback: 'Error');
       notifyListeners();
     }
   }

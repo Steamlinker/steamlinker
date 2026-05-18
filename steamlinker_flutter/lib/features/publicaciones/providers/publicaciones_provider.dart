@@ -83,7 +83,7 @@ class PublicacionesProvider extends ChangeNotifier {
       _cargando = false;
       notifyListeners();
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al buscar publicaciones';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al buscar publicaciones');
       _cargando = false;
       notifyListeners();
     }
@@ -108,7 +108,91 @@ class PublicacionesProvider extends ChangeNotifier {
       await buscar();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al crear publicacion';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al crear publicacion');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Map<String, dynamic>? _detalle;
+  bool _cargandoDetalle = false;
+
+  Map<String, dynamic>? get detalle => _detalle;
+  bool get cargandoDetalle => _cargandoDetalle;
+
+  Future<Map<String, dynamic>?> cargarPorId(int id) async {
+    _cargandoDetalle = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final respuesta = await ApiClient.dio.get('/publicaciones/$id');
+      _detalle = Map<String, dynamic>.from(respuesta.data as Map);
+      _cargandoDetalle = false;
+      notifyListeners();
+      return _detalle;
+    } on DioException catch (e) {
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar publicación');
+      _detalle = null;
+      _cargandoDetalle = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  void limpiarDetalle() {
+    _detalle = null;
+    _comentarios = [];
+    notifyListeners();
+  }
+
+  List<dynamic> _comentarios = [];
+  bool _cargandoComentarios = false;
+  bool _enviandoComentario = false;
+
+  List<dynamic> get comentarios => _comentarios;
+  bool get cargandoComentarios => _cargandoComentarios;
+  bool get enviandoComentario => _enviandoComentario;
+
+  Future<void> cargarComentarios(int idPubli) async {
+    _cargandoComentarios = true;
+    notifyListeners();
+
+    try {
+      final respuesta = await ApiClient.dio.get('/publicaciones/$idPubli/comentarios');
+      _comentarios = respuesta.data['comentarios'] ?? [];
+      _cargandoComentarios = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cargar comentarios');
+      _cargandoComentarios = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> enviarComentario(
+    int idPubli,
+    String texto, {
+    int? idPadre,
+  }) async {
+    _enviandoComentario = true;
+    notifyListeners();
+
+    try {
+      final respuesta = await ApiClient.dio.post(
+        '/publicaciones/$idPubli/comentarios',
+        data: {
+          'texto': texto,
+          if (idPadre != null) 'id_padre': idPadre,
+        },
+      );
+      _comentarios = [..._comentarios, respuesta.data];
+      _enviandoComentario = false;
+      notifyListeners();
+      return true;
+    } on DioException catch (e) {
+      _error = ApiClient.errorMessage(e, fallback: 'Error al comentar');
+      _enviandoComentario = false;
       notifyListeners();
       return false;
     }
@@ -122,7 +206,7 @@ class PublicacionesProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      _error = e.response?.data['error'] ?? 'Error al cerrar publicacion';
+      _error = ApiClient.errorMessage(e, fallback: 'Error al cerrar publicacion');
       notifyListeners();
       return false;
     }

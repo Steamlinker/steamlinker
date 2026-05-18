@@ -304,29 +304,31 @@ class _Composer extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              height: 44,
-              width: 44,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: SteamColors.blue,
-                  disabledBackgroundColor: SteamColors.bgCard,
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: SteamColors.blue,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: SteamColors.bgCard,
+                disabledForegroundColor: SteamColors.muted,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                onPressed: enviando ? null : onEnviar,
-                child: enviando
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded, size: 20),
+              ),
+              onPressed: enviando ? null : onEnviar,
+              icon: enviando
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send_rounded, size: 18),
+              label: Text(
+                enviando ? '...' : 'Enviar',
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
           ],

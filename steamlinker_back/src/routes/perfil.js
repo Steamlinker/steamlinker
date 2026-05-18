@@ -48,6 +48,7 @@ router.get('/descubrir', verificarToken, async (req, res) => {
             LEFT JOIN publicacion_juegos pj ON pj.id_publi = p.id_publi
             WHERE p.estado_publi = TRUE
               AND COALESCE(u.baneado_usu, FALSE) = FALSE
+              AND COALESCE(u.perfil_publico, TRUE) = TRUE
               AND u.id_usu <> $1
         `;
 
@@ -99,6 +100,72 @@ router.get('/comparar/:id', verificarToken, async (req, res) => {
     }
 
     try {
+        const otroUser = await pool.query(
+            `SELECT username_usu,
+                    COALESCE(mostrar_biblioteca, TRUE) AS mostrar_biblioteca,
+                    COALESCE(perfil_publico, TRUE) AS perfil_publico
+             FROM usuarios WHERE id_usu = $1`,
+            [otroId]
+        );
+
+        if (otroUser.rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        if (otroUser.rows[0].perfil_publico === false) {
+            return res.status(403).json({ error: 'Este perfil es privado' });
+        }
+
+        const otroUsername = otroUser.rows[0].username_usu;
+        const otroMuestraBiblioteca = otroUser.rows[0].mostrar_biblioteca !== false;
+
+        const steamRows = await pool.query(
+            `SELECT id_usu, steam_id FROM perfiles_steam WHERE id_usu = ANY($1::int[])`,
+            [[miId, otroId]]
+        );
+        const steamPorUsuario = Object.fromEntries(
+            steamRows.rows.map((r) => [r.id_usu, r.steam_id])
+        );
+        const miSteam = steamPorUsuario[miId];
+        const otroSteam = steamPorUsuario[otroId];
+
+        if (miSteam && otroSteam && process.env.STEAM_API_KEY) {
+            try {
+                const steamResult = await steamService.getCommonGames(miSteam, otroSteam);
+                const comunes = steamResult.commonGames.map((g) => ({
+                    appid: g.appid,
+                    nombre: g.name,
+                    headerimg: g.headerImg,
+                    capsuleimg: g.capsuleImg,
+                    misHoras: g.hoursPlayed,
+                    susHoras: g.hoursPlayedB,
+                }));
+
+                return res.json({
+                    fuente: 'steam',
+                    otro_username: otroUsername,
+                    totalA: steamResult.totalA,
+                    totalB: steamResult.totalB,
+                    commonCount: steamResult.commonCount,
+                    commonGames: comunes,
+                });
+            } catch (steamErr) {
+                const msg = steamErr.message || 'Error al consultar Steam';
+                if (!otroMuestraBiblioteca) {
+                    return res.status(403).json({
+                        error: 'Biblioteca no disponible. El usuario la ocultó o su perfil de Steam es privado.',
+                        detalle_steam: msg,
+                    });
+                }
+            }
+        }
+
+        if (!otroMuestraBiblioteca) {
+            return res.status(403).json({
+                error: 'Este usuario ocultó su biblioteca en Steamlinker.',
+            });
+        }
+
         const queryJuegos = `
             SELECT j.appid, j.nom_jg, j.headerimg_jg, j.capsuleimg_jg, uj.horas_usujg
             FROM usuarios_juegos uj
@@ -106,18 +173,10 @@ router.get('/comparar/:id', verificarToken, async (req, res) => {
             WHERE uj.id_usu = $1
         `;
 
-        const [misRows, susRows, otroUser] = await Promise.all([
+        const [misRows, susRows] = await Promise.all([
             pool.query(queryJuegos, [miId]),
             pool.query(queryJuegos, [otroId]),
-            pool.query(
-                'SELECT username_usu FROM usuarios WHERE id_usu = $1',
-                [otroId]
-            ),
         ]);
-
-        if (otroUser.rows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
 
         const misJuegos = misRows.rows;
         const susJuegos = susRows.rows;
@@ -139,7 +198,8 @@ router.get('/comparar/:id', verificarToken, async (req, res) => {
             .sort((a, b) => (b.misHoras + b.susHoras) - (a.misHoras + a.susHoras));
 
         res.json({
-            otro_username: otroUser.rows[0].username_usu,
+            fuente: 'local',
+            otro_username: otroUsername,
             totalA: misJuegos.length,
             totalB: susJuegos.length,
             commonCount: comunes.length,
@@ -167,28 +227,43 @@ router.get('/:id', verificarToken, async (req, res) => {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
-        // Traer los juegos del usuario
-        const juegos = await pool.query(
-            `SELECT j.appid, j.nom_jg, j.headerimg_jg, j.capsuleimg_jg,
-                    uj.horas_usujg, uj.esfav_usujg
-             FROM usuarios_juegos uj
-             JOIN juegos j ON uj.appid = j.appid
-             WHERE uj.id_usu = $1
-             ORDER BY uj.esfav_usujg DESC, uj.horas_usujg DESC`,
-            [req.params.id]
-        );
+        const perfil = usuario.rows[0];
+        const esPropio = req.usuario.id === parseInt(req.params.id, 10);
 
-        // Traer si tiene perfil de steam vinculado
+        if (!esPropio && perfil.perfil_publico === false) {
+            return res.status(403).json({ error: 'Este perfil es privado' });
+        }
+
+        const mostrarBiblioteca = esPropio || perfil.mostrar_biblioteca !== false;
+
+        let juegos = [];
+        if (mostrarBiblioteca) {
+            const juegosRes = await pool.query(
+                `SELECT j.appid, j.nom_jg, j.headerimg_jg, j.capsuleimg_jg,
+                        uj.horas_usujg, uj.esfav_usujg
+                 FROM usuarios_juegos uj
+                 JOIN juegos j ON uj.appid = j.appid
+                 WHERE uj.id_usu = $1
+                 ORDER BY uj.esfav_usujg DESC, uj.horas_usujg DESC`,
+                [req.params.id]
+            );
+            juegos = juegosRes.rows;
+        }
+
         const steam = await pool.query(
             `SELECT steam_id, username_steperfil, avatar_url, perfil_url
              FROM perfiles_steam WHERE id_usu = $1`,
             [req.params.id]
         );
 
+        const steamVinculado = steam.rows.length > 0;
+
         res.json({
-            ...usuario.rows[0],
-            juegos: juegos.rows,
-            steam: steam.rows[0] || null
+            ...perfil,
+            juegos,
+            biblioteca_oculta: !mostrarBiblioteca,
+            steam_vinculado: steamVinculado,
+            steam: esPropio || mostrarBiblioteca ? (steam.rows[0] || null) : null,
         });
 
     } catch (err) {

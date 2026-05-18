@@ -1,30 +1,27 @@
 // Cliente HTTP centralizado usando Dio
-// Todas las llamadas al backend pasan por aqui
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
+import 'api_error_mapper.dart';
 
 class ApiClient {
-  // En Flutter web (Chrome), el backend se accede como localhost.
-  // En Android emulator se usa 10.0.2.2 porque localhost apunta al emulador.
-  static String get baseUrl => kIsWeb ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
-  
+  static Future<void> Function()? onUnauthorized;
+
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      baseUrl: AppConfig.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 20),
+      sendTimeout: const Duration(seconds: 20),
       headers: {'Content-Type': 'application/json'},
     ),
   );
 
-  // Configurar el cliente con interceptores
   static void init() {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // Agregar el token JWT a cada request automaticamente
           final prefs = await SharedPreferences.getInstance();
           final token = prefs.getString('token');
           if (token != null) {
@@ -32,7 +29,15 @@ class ApiClient {
           }
           handler.next(options);
         },
-        onError: (error, handler) {
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401) {
+            final path = error.requestOptions.path;
+            final esAuthPublico = path.contains('/auth/login') ||
+                path.contains('/auth/registro');
+            if (!esAuthPublico && onUnauthorized != null) {
+              await onUnauthorized!();
+            }
+          }
           handler.next(error);
         },
       ),
@@ -40,4 +45,8 @@ class ApiClient {
   }
 
   static Dio get dio => _dio;
+
+  /// Atajo para mensajes de error en providers.
+  static String errorMessage(DioException e, {required String fallback}) =>
+      ApiErrorMapper.resolve(e, fallback: fallback);
 }
