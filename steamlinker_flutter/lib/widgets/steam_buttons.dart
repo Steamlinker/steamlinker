@@ -38,10 +38,14 @@ class SteamButtonPrimary extends StatelessWidget {
       child: _ButtonLabel(label: label, icon: icon, compact: compact, onPrimary: true),
     );
 
-    if (fullWidth) {
-      return SizedBox(width: double.infinity, child: button);
-    }
-    return button;
+    if (!fullWidth) return button;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        if (!w.isFinite) return button;
+        return SizedBox(width: w, child: button);
+      },
+    );
   }
 }
 
@@ -80,10 +84,14 @@ class SteamButtonOutline extends StatelessWidget {
       child: _ButtonLabel(label: label, icon: icon, compact: compact),
     );
 
-    if (fullWidth) {
-      return SizedBox(width: double.infinity, child: button);
-    }
-    return button;
+    if (!fullWidth) return button;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        if (!w.isFinite) return button;
+        return SizedBox(width: w, child: button);
+      },
+    );
   }
 }
 
@@ -116,10 +124,14 @@ class SteamButtonDanger extends StatelessWidget {
       child: _ButtonLabel(label: label, icon: icon, compact: false),
     );
 
-    if (fullWidth) {
-      return SizedBox(width: double.infinity, child: button);
-    }
-    return button;
+    if (!fullWidth) return button;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        if (!w.isFinite) return button;
+        return SizedBox(width: w, child: button);
+      },
+    );
   }
 }
 

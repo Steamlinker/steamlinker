@@ -1,14 +1,6 @@
 // Extensiones del panel admin conectadas al backend Steamlinker
 
 (function patchAdminPanel() {
-  const origLoadDashboard = window.loadDashboard;
-  const origFilterUsuarios = window.filterUsuarios;
-  const origRenderUsuarios = window.renderUsuarios;
-  const origRenderReportes = window.renderReportes;
-  const origRenderSolicitudes = window.renderSolicitudes;
-  const origRenderContenido = window.renderContenido;
-  const origDoLogin = window.doLogin;
-
   window.loadDashboard = async function loadDashboardPatched() {
     try {
       const stats = await api('GET', ENDPOINTS.stats());
@@ -23,6 +15,18 @@
         set('st-solicitudes', s.solicitudesPendientes);
         set('st-reportes', s.reportesPendientes);
         set('st-publicaciones', s.totalPublicaciones);
+        set('st-baneados', s.usuariosBaneados);
+        set('st-steam', s.usuariosConSteam);
+        set('st-chats', s.totalChats);
+        set('st-juegos', s.juegosEnBibliotecas);
+        set('st-nuevos', s.usuariosNuevos7d);
+        if (s.reportesPendientes > 0) {
+          const b = document.getElementById('badge-reportes');
+          if (b) {
+            b.style.display = '';
+            b.textContent = s.reportesPendientes;
+          }
+        }
       }
     } catch (e) {
       /* stats opcionales */
@@ -55,10 +59,34 @@
         `<div class="empty"><p>No se pudo cargar usuarios. ${e.message}</p></div>`;
     }
 
-    document.getElementById('dash-activity').innerHTML = `
-      <div class="activity-item"><div class="activity-dot blue"></div><div class="activity-text">Panel conectado a <span>${BASE_URL}</span></div><div class="activity-time">ahora</div></div>
-      <div class="activity-item"><div class="activity-dot green"></div><div class="activity-text">Rutas admin bajo <span>${ROUTE_PREFIX}</span></div><div class="activity-time">ahora</div></div>
-    `;
+    const actEl = document.getElementById('dash-activity');
+    if (!actEl) return;
+    try {
+      const items = await api('GET', ENDPOINTS.actividad() + '?limit=12');
+      const lista = Array.isArray(items) ? items : [];
+      if (!lista.length) {
+        actEl.innerHTML = '<p style="color:var(--t3);font-size:12px;">Sin actividad reciente</p>';
+        return;
+      }
+      const dot = { usuario: 'green', reporte: 'red', publicacion: 'blue', match: 'yellow' };
+      const label = { usuario: 'Nuevo usuario', reporte: 'Reporte', publicacion: 'Publicación', match: 'Match' };
+      actEl.innerHTML = lista
+        .map((ev) => {
+          const tipo = (ev.tipo || '').toLowerCase();
+          const d = dot[tipo] || 'blue';
+          const titulo = ev.titulo || '—';
+          const det = ev.detalle ? '<span> — ' + truncate(ev.detalle, 60) + '</span>' : '';
+          return (
+            '<div class="activity-item">' +
+            '<div class="activity-dot ' + d + '"></div>' +
+            '<div class="activity-text"><strong>' + (label[tipo] || tipo) + '</strong> · ' + titulo + det + '</div>' +
+            '<div class="activity-time">' + fmtDateTime(ev.fecha) + '</div></div>'
+          );
+        })
+        .join('');
+    } catch (e) {
+      actEl.innerHTML = '<p style="color:var(--t3);font-size:12px;">Actividad: ' + e.message + '</p>';
+    }
   };
 
   window.filterUsuarios = function filterUsuariosPatched() {
@@ -101,11 +129,14 @@
         const baneado = u.baneado_usu === true;
         const esAdmin = tipo === 'admin';
         const estado = baneado ? 'baneado' : 'activo';
-        const acciones = esAdmin
-          ? '<span class="mono" style="color:var(--t3)">admin</span>'
-          : baneado
-            ? `<button class="btn btn-green btn-sm" onclick="accionUsuario('unban',${id},'${name.replace(/'/g, "\\'")}')">Desbanear</button>`
-            : `<button class="btn btn-yellow btn-sm" onclick="accionUsuario('ban',${id},'${name.replace(/'/g, "\\'")}')">Banear</button>`;
+        const nameEsc = name.replace(/'/g, "\\'");
+        let acciones = '<button class="btn btn-ghost btn-sm" onclick="verUsuario(' + id + ')">Ver</button>';
+        if (!esAdmin) {
+          acciones += baneado
+            ? ` <button class="btn btn-green btn-sm" onclick="accionUsuario('unban',${id},'${nameEsc}')">Desbanear</button>`
+            : ` <button class="btn btn-yellow btn-sm" onclick="accionUsuario('ban',${id},'${nameEsc}')">Banear</button>`;
+          acciones += ` <button class="btn btn-red btn-sm" onclick="accionUsuario('delete',${id},'${nameEsc}')">Eliminar</button>`;
+        }
         return `<tr>
           <td><div class="user-cell"><div class="avatar-txt">${initials(name)}</div><div><div>${name}</div><div class="mono" style="font-size:10px;">#${id}${u.steam_id ? ' · Steam' : ''}</div></div></div></td>
           <td class="mono">${email}</td>
@@ -114,7 +145,7 @@
           <td>${statusBadge(estado)}</td>
           <td>${statusBadge(tipo)}</td>
           <td class="mono">${fmtDate(fecha)}</td>
-          <td>${acciones}</td>
+          <td><div style="display:flex;gap:5px;flex-wrap:wrap;">${acciones}</div></td>
         </tr>`;
       })
       .join('');
@@ -138,7 +169,8 @@
         const pendiente = String(estado).toLowerCase() === 'pendiente' || String(estado).toLowerCase() === 'abierto';
         const acciones = pendiente
           ? `<button class="btn btn-green btn-sm" onclick="accionReporte('resuelto',${id})">Resolver</button>
-             <button class="btn btn-ghost btn-sm" onclick="accionReporte('descartado',${id})">Descartar</button>`
+             <button class="btn btn-ghost btn-sm" onclick="accionReporte('descartado',${id})">Descartar</button>
+             <button class="btn btn-red btn-sm" onclick="banearDesdeReporte(${id})">Banear</button>`
           : '<span class="mono" style="color:var(--t3)">—</span>';
         return `<tr>
           <td><div class="user-cell"><div class="avatar-txt">${initials(rep)}</div>${rep}</div></td>
@@ -146,8 +178,7 @@
           <td style="max-width:200px;">${truncate(motivo, 50)}</td>
           <td>${statusBadge(estado)}</td>
           <td class="mono">${fmtDateTime(fecha)}</td>
-          <td><div style="display:flex;gap:6px;flex-wrap:wrap;">${acciones}</div></td>
-        </tr>`;
+          <td><div style="display:flex;gap:6px;flex-wrap:wrap;">${acciones}</div></td></tr>`;
       })
       .join('');
   };
@@ -193,9 +224,10 @@
         const estadoLabel = activa ? 'activa' : 'cerrada';
         const autor = c.username_usu || '—';
         const fecha = c.creadoen_publi;
-        const acciones = activa
-          ? `<button class="btn btn-red btn-sm" onclick="accionContenido('cerrar',${id})">Cerrar</button>`
-          : `<button class="btn btn-green btn-sm" onclick="accionContenido('reabrir',${id})">Reabrir</button>`;
+        const acciones = (activa
+          ? `<button class="btn btn-yellow btn-sm" onclick="accionContenido('cerrar',${id})">Cerrar</button>`
+          : `<button class="btn btn-green btn-sm" onclick="accionContenido('reabrir',${id})">Reabrir</button>`) +
+          ` <button class="btn btn-red btn-sm" onclick="accionContenido('delete',${id})">Eliminar</button>`;
         return `<tr>
           <td>${statusBadge(tipo)}</td>
           <td>${autor}</td>
@@ -208,8 +240,19 @@
       .join('');
   };
 
-  const origAccionContenido = window.accionContenido;
   window.accionContenido = async function accionContenidoPatched(estado, id) {
+    if (estado === 'delete') {
+      showModal('Eliminar publicación', '¿Eliminar permanentemente?', 'Eliminar', 'red', async () => {
+        try {
+          await api('DELETE', ENDPOINTS.contenidoItem(id));
+          toast('Eliminada', 'ok');
+          loadContenido();
+        } catch (e) {
+          toast(e.message, 'err');
+        }
+      });
+      return;
+    }
     if (estado === 'cerrar' || estado === 'reabrir') {
       try {
         await api('PUT', ENDPOINTS.contenidoItem(id), {
@@ -220,9 +263,7 @@
       } catch (e) {
         toast(e.message, 'err');
       }
-      return;
     }
-    if (origAccionContenido) return origAccionContenido(estado, id);
   };
 
   window.doLogin = async function doLoginPatched() {
@@ -301,5 +342,232 @@
     renderReportes();
   };
 
-  console.info('[Steamlinker Admin] Panel conectado al backend.');
+  ENDPOINTS.actividad = () => `${BASE_URL}${ROUTE_PREFIX}/actividad`;
+  ENDPOINTS.chats = () => `${BASE_URL}${ROUTE_PREFIX}/chats`;
+  ENDPOINTS.banReportado = (id) => `${BASE_URL}${ROUTE_PREFIX}/reportes/${id}/ban-reportado`;
+  data.chats = data.chats || [];
+  filtered.chats = filtered.chats || [];
+  pages.chats = pages.chats || 1;
+
+  window.loadChats = async function loadChats() {
+    const tbody = document.getElementById('chats-tbody');
+    if (!tbody) return;
+    tbody.innerHTML =
+      '<tr><td colspan="5"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr>';
+    try {
+      const res = await api('GET', ENDPOINTS.chats());
+      data.chats = Array.isArray(res) ? res : [];
+      filterChats();
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><p>' + e.message + '</p></div></td></tr>';
+    }
+  };
+
+  window.filterChats = function filterChats() {
+    const q = (document.getElementById('chats-search')?.value || '').toLowerCase();
+    filtered.chats = data.chats.filter((c) => {
+      const a = (c.usuario_a || '').toLowerCase();
+      const b = (c.usuario_b || '').toLowerCase();
+      const m = (c.ultimo_mensaje || '').toLowerCase();
+      return !q || a.includes(q) || b.includes(q) || m.includes(q);
+    });
+    pages.chats = 1;
+    renderChats();
+  };
+
+  window.renderChats = function renderChats() {
+    const tbody = document.getElementById('chats-tbody');
+    if (!tbody) return;
+    const items = renderPagination('chats', 'chats', renderChats);
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty"><p>Sin chats</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = items
+      .map(
+        (c) =>
+          '<tr><td class="mono">#' +
+          (c.id_chat || '?') +
+          '</td><td>' +
+          (c.usuario_a || '—') +
+          ' ↔ ' +
+          (c.usuario_b || '—') +
+          '</td><td>' +
+          truncate(c.ultimo_mensaje || '—', 70) +
+          '</td><td class="mono">' +
+          (c.total_mensajes ?? 0) +
+          '</td><td class="mono">' +
+          fmtDateTime(c.ultima_actividad) +
+          '</td></tr>'
+      )
+      .join('');
+  };
+
+  window.chatsPag = (d) => {
+    pages.chats = Math.max(1, pages.chats + d);
+    renderChats();
+  };
+
+  window.verUsuario = async function verUsuario(id) {
+    try {
+      const u = await api('GET', ENDPOINTS.usuario(id));
+      if (!u) return;
+      const modal = document.getElementById('usuario-modal');
+      const body = document.getElementById('usuario-modal-body');
+      if (!modal || !body) return;
+      document.getElementById('usuario-modal-title').textContent = u.username_usu || 'Usuario #' + id;
+      const baneado = u.baneado_usu === true;
+      const esAdmin = (u.tipo_usu || '').toLowerCase() === 'admin';
+      const nameEsc = (u.username_usu || '').replace(/'/g, "\\'");
+      const steam = u.steam_id
+        ? '<a href="' +
+          (u.perfil_url || '#') +
+          '" target="_blank" style="color:var(--accent)">' +
+          (u.username_steperfil || u.steam_id) +
+          '</a>'
+        : 'No vinculado';
+      let acc =
+        '<button class="btn btn-ghost btn-sm" onclick="cambiarRepuUsuario(' + id + ')">Ajustar reputación</button>';
+      if (!esAdmin) {
+        acc +=
+          ' <button class="btn btn-blue btn-sm" onclick="cambiarRolUsuario(' +
+          id +
+          ", 'admin')\">Hacer admin</button>";
+        acc += baneado
+          ? ' <button class="btn btn-green btn-sm" onclick="closeUsuarioModal();accionUsuario(\'unban\',' +
+            id +
+            ",'" +
+            nameEsc +
+            "')\">Desbanear</button>"
+          : ' <button class="btn btn-yellow btn-sm" onclick="closeUsuarioModal();accionUsuario(\'ban\',' +
+            id +
+            ",'" +
+            nameEsc +
+            "')\">Banear</button>";
+        acc +=
+          ' <button class="btn btn-red btn-sm" onclick="closeUsuarioModal();accionUsuario(\'delete\',' +
+          id +
+          ",'" +
+          nameEsc +
+          "')\">Eliminar</button>";
+      }
+      body.innerHTML =
+        '<div class="detail-grid">' +
+        '<div class="detail-field"><div class="df-label">Email</div><div class="df-value mono">' +
+        (u.email_usu || '—') +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">País</div><div class="df-value">' +
+        (u.pais_usu || '—') +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">Tipo</div><div class="df-value">' +
+        statusBadge(u.tipo_usu || 'usuario') +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">Estado</div><div class="df-value">' +
+        statusBadge(baneado ? 'baneado' : 'activo') +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">Reputación</div><div class="df-value">★ ' +
+        Number(u.repu_usu || 0).toFixed(1) +
+        ' (' +
+        (u.totalrating_usu || 0) +
+        ')</div></div>' +
+        '<div class="detail-field"><div class="df-label">Steam</div><div class="df-value">' +
+        steam +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">Publicaciones</div><div class="df-value">' +
+        (u.publicaciones ?? 0) +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">Juegos</div><div class="df-value">' +
+        (u.juegos ?? 0) +
+        '</div></div>' +
+        '<div class="detail-field"><div class="df-label">Reportes recibidos</div><div class="df-value">' +
+        (u.reportes_recibidos ?? 0) +
+        '</div></div>' +
+        '</div>' +
+        (baneado && u.motivo_ban
+          ? '<p style="margin-top:10px;color:var(--red);font-size:12px;">Motivo: ' + u.motivo_ban + '</p>'
+          : '') +
+        '<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;">' +
+        acc +
+        '</div>';
+      modal.classList.add('open');
+    } catch (e) {
+      toast(e.message, 'err');
+    }
+  };
+
+  window.closeUsuarioModal = () => document.getElementById('usuario-modal')?.classList.remove('open');
+
+  window.cambiarRepuUsuario = (id) => {
+    const val = prompt('Nueva reputación:', '0');
+    if (val === null) return;
+    const repu = Number(val);
+    if (Number.isNaN(repu) || repu < 0) {
+      toast('Valor inválido', 'err');
+      return;
+    }
+    api('PUT', ENDPOINTS.usuario(id), { repu })
+      .then(() => {
+        toast('Reputación actualizada', 'ok');
+        verUsuario(id);
+        loadUsuarios();
+      })
+      .catch((e) => toast(e.message, 'err'));
+  };
+
+  window.cambiarRolUsuario = (id, rol) => {
+    showModal('Cambiar rol', '¿Confirmar cambio de rol a <strong>' + rol + '</strong>?', 'Confirmar', 'blue', () => {
+      api('PUT', ENDPOINTS.usuario(id), { tipo: rol })
+        .then(() => {
+          toast('Rol actualizado', 'ok');
+          verUsuario(id);
+          loadUsuarios();
+        })
+        .catch((e) => toast(e.message, 'err'));
+    });
+  };
+
+  window.exportarUsuariosCsv = () => {
+    const rows = filtered.usuarios.length ? filtered.usuarios : data.usuarios;
+    if (!rows.length) {
+      toast('Sin datos', 'info');
+      return;
+    }
+    const lines = ['id,username,email,pais,tipo,repu,baneado'];
+    rows.forEach((u) => {
+      lines.push(
+        [u.id_usu, u.username_usu, u.email_usu, u.pais_usu, u.tipo_usu, u.repu_usu, u.baneado_usu ? 1 : 0].join(',')
+      );
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'steamlinker-usuarios.csv';
+    a.click();
+    toast('CSV descargado', 'ok');
+  };
+
+  window.banearDesdeReporte = (id) => {
+    showModal('Banear reportado', '¿Banear al usuario y resolver el reporte?', 'Banear', 'red', async () => {
+      try {
+        await api('POST', ENDPOINTS.banReportado(id), {});
+        toast('Usuario baneado', 'ok');
+        loadReportes();
+        loadUsuarios();
+      } catch (e) {
+        toast(e.message, 'err');
+      }
+    });
+  };
+
+  const origNav = window.nav;
+  window.nav = function navFull(section) {
+    origNav(section);
+    if (section === 'chats') loadChats();
+  };
+
+  if (typeof sectionTitles !== 'undefined') {
+    sectionTitles.chats = ['Chats', '· conversaciones'];
+  }
+
+  console.info('[Steamlinker Admin] Panel conectado al backend (extendido).');
 })();

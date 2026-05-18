@@ -28,7 +28,10 @@ class _MainShellState extends State<MainShell> {
     super.didChangeDependencies();
     if (!_notifInit) {
       _notifInit = true;
-      context.read<NotificacionesProvider>().cargarContador();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<NotificacionesProvider>().cargarContador();
+      });
     }
   }
 

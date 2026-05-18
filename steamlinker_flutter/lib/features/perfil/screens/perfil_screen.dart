@@ -7,8 +7,8 @@ import '../../../widgets/steam_card.dart';
 import '../../../widgets/steam_toast.dart';
 import '../../../widgets/steam_buttons.dart';
 import '../../../core/auth/session_actions.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/auth/user_role.dart';
+import '../../../core/navigation/app_navigator.dart';
 import '../../account/screens/account_settings_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/widgets/admin_panel_section.dart';
@@ -37,7 +37,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
     if (!_inicializado) {
       _inicializado = true;
       _perfilProv = context.read<PerfilProvider>();
-      _cargarPerfil();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _cargarPerfil();
+      });
     }
   }
 
@@ -442,11 +444,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
                               child: SteamButtonOutline(
                                 label: 'Configuración',
                                 onTap: () {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (context.mounted) {
-                                      context.push('/configuracion');
-                                    }
-                                  });
+                                  pushAppScreen(
+                                    context,
+                                    const AccountSettingsScreen(),
+                                  );
                                 },
                               ),
                             ),

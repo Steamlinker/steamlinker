@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../theme/colors.dart';
 import '../features/auth/providers/auth_provider.dart';
@@ -22,7 +23,26 @@ class SteamAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight + 1);
 
-  bool _canPop(BuildContext context) => Navigator.of(context).canPop();
+  bool _canPop(BuildContext context) {
+    if (Navigator.of(context, rootNavigator: true).canPop()) return true;
+    final router = GoRouter.maybeOf(context);
+    if (router != null && router.canPop()) return true;
+    return Navigator.of(context).canPop();
+  }
+
+  void _pop(BuildContext context) {
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    if (rootNav.canPop()) {
+      rootNav.pop();
+      return;
+    }
+    final router = GoRouter.maybeOf(context);
+    if (router != null && router.canPop()) {
+      context.pop();
+      return;
+    }
+    Navigator.of(context).maybePop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +55,7 @@ class SteamAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       automaticallyImplyLeading: false,
       leadingWidth: useBack ? 48 : 56,
-      leading: useBack ? _BackLeading(onPressed: () => Navigator.of(context).pop()) : _LogoLeading(),
+      leading: useBack ? _BackLeading(onPressed: () => _pop(context)) : _LogoLeading(),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(height: 1, color: SteamColors.border),

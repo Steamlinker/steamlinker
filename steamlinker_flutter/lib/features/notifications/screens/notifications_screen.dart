@@ -56,7 +56,9 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     super.didChangeDependencies();
     if (!_inicializado) {
       _inicializado = true;
-      _cargarFiltroActual();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _cargarFiltroActual();
+      });
     }
   }
 

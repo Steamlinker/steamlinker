@@ -42,7 +42,9 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     super.didChangeDependencies();
     if (!_perfilInicializado) {
       _perfilInicializado = true;
-      _cargarPerfil();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _cargarPerfil();
+      });
     }
   }
 
@@ -72,19 +74,28 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     _tieneCambios = false;
   }
 
+  static int? _parseId(dynamic id) {
+    if (id is int) return id;
+    return int.tryParse(id?.toString() ?? '');
+  }
+
+  static bool _idsMatch(dynamic a, dynamic b) {
+    final ia = _parseId(a);
+    final ib = _parseId(b);
+    return ia != null && ib != null && ia == ib;
+  }
+
   Future<void> _cargarPerfil() async {
     final auth = context.read<AuthProvider>();
     final perfilProv = context.read<PerfilProvider>();
     final usuario = auth.usuario;
     if (usuario == null) return;
 
-    final userId = usuario['id'] is int
-        ? usuario['id'] as int
-        : int.tryParse(usuario['id']?.toString() ?? '');
+    final userId = _parseId(usuario['id']);
     if (userId == null) return;
 
     final perfilActual = perfilProv.perfil;
-    if (perfilActual != null && perfilActual['id'] == userId) {
+    if (perfilActual != null && _idsMatch(perfilActual['id'], userId)) {
       if (mounted) {
         setState(() => _aplicarDatosPerfil(perfilActual, usuario));
       }
@@ -97,7 +108,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     if (perfil != null) {
       setState(() => _aplicarDatosPerfil(perfil, usuario));
     } else {
-      setState(() {});
+      setState(() {
+        _descripcionController.text = usuario['descrip']?.toString() ?? '';
+        _originalDescripcion = _descripcionController.text;
+        _pais = _paisValido(usuario['pais']);
+        _originalPais = _pais;
+        _tieneCambios = false;
+      });
     }
   }
 
@@ -180,77 +197,74 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     setState(() => _guardando = false);
   }
 
-  Widget _contenidoConfiguracion({
+  List<Widget> _tarjetasConfiguracion({
     required Map<String, dynamic> usuario,
-    required PerfilProvider perfilProv,
   }) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-                _ProfileCard(
-                  usuario: usuario,
-                  descripcionController: _descripcionController,
-                  pais: _pais,
-                  guardando: _guardando,
-                  hasChanges: _tieneCambios,
-                  onGuardar: _guardarPerfil,
-                  onPaisChanged: (value) {
-                    _marcarCambio();
-                    setState(() => _pais = value);
-                  },
-                  onDescripcionChanged: (_) => _marcarCambio(),
-                  onCancelar: _restaurarPerfil,
-                ),
-                const SizedBox(height: 16),
-                const _SecurityCard(),
-                const SizedBox(height: 16),
-                const _PrivacyCard(),
-                const SizedBox(height: 16),
-                const _DangerCard(),
-                const SizedBox(height: 32),
-      ],
-    );
+    return [
+      _ProfileCard(
+        usuario: usuario,
+        descripcionController: _descripcionController,
+        pais: _pais,
+        guardando: _guardando,
+        hasChanges: _tieneCambios,
+        onGuardar: _guardarPerfil,
+        onPaisChanged: (value) {
+          _marcarCambio();
+          setState(() => _pais = value);
+        },
+        onDescripcionChanged: (_) => _marcarCambio(),
+        onCancelar: _restaurarPerfil,
+      ),
+      const SizedBox(height: 16),
+      const _SecurityCard(),
+      const SizedBox(height: 16),
+      const _PrivacyCard(),
+      const SizedBox(height: 16),
+      const _DangerCard(),
+    ];
   }
 
   Widget _cuerpoPrincipal(
     Map<String, dynamic> usuario,
     PerfilProvider perfilProv,
   ) {
-    if (perfilProv.cargando && perfilProv.perfil == null) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(SteamColors.blue),
-        ),
-      );
-    }
-
-    if (!perfilProv.cargando &&
-        perfilProv.perfil == null &&
-        perfilProv.error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                perfilProv.error ?? 'No se pudo cargar tu perfil',
-                style: const TextStyle(color: SteamColors.light),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              SteamButtonPrimary(
-                label: 'Reintentar',
-                icon: Icons.refresh,
-                onTap: (_) => _cargarPerfil(),
-              ),
-            ],
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (!perfilProv.cargando &&
+            perfilProv.perfil == null &&
+            perfilProv.error != null) ...[
+          Text(
+            perfilProv.error ?? 'No se pudo cargar tu perfil',
+            style: const TextStyle(color: SteamColors.light),
+            textAlign: TextAlign.center,
           ),
-        ),
-      );
-    }
-
-    return _contenidoConfiguracion(usuario: usuario, perfilProv: perfilProv);
+          const SizedBox(height: 12),
+          SteamButtonPrimary(
+            label: 'Reintentar',
+            icon: Icons.refresh,
+            onTap: (_) => _cargarPerfil(),
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (perfilProv.cargando && perfilProv.perfil == null)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation(SteamColors.blue),
+                ),
+              ),
+            ),
+          ),
+        ..._tarjetasConfiguracion(usuario: usuario),
+        const SizedBox(height: 32),
+      ],
+    );
   }
 
   @override
@@ -261,7 +275,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'CONFIGURACIÓN'),
+      appBar: const SteamAppBar(title: 'CONFIGURACIÓN', showBack: true),
       body: usuario == null
           ? const Center(
               child: Text(
@@ -352,11 +366,18 @@ class _ProfileCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              SteamButtonOutline(label: 'Cancelar', onTap: onCancelar),
+              SteamButtonOutline(
+                label: 'Cancelar',
+                onTap: onCancelar,
+                fullWidth: false,
+                compact: true,
+              ),
               const SizedBox(width: 10),
               SteamButtonPrimary(
                 label: guardando ? 'Guardando...' : 'Guardar',
                 icon: Icons.save_outlined,
+                fullWidth: false,
+                compact: true,
                 onTap: guardando || !hasChanges ? (_) {} : (_) => onGuardar(),
               ),
             ],

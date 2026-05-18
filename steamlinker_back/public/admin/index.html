@@ -329,6 +329,10 @@ select.filter-sel:focus{border-color:var(--border2);}
         <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="12" cy="12" r="3.5" fill="var(--bg2)" stroke="currentColor" stroke-width="1.3"/><path d="M10.8 12l.9.9 1.5-1.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Contenido
       </button>
+      <button class="nav-item" onclick="nav('chats')">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h9A1.5 1.5 0 0 1 14 4.5v5A1.5 1.5 0 0 1 12.5 11H8l-3 2.5V11H3.5A1.5 1.5 0 0 1 2 9.5v-5z" stroke="currentColor" stroke-width="1.3"/></svg>
+        Chats
+      </button>
     </div>
 
     <div class="nav-group">
@@ -371,6 +375,11 @@ select.filter-sel:focus{border-color:var(--border2);}
           <div class="stat-card accent-yellow"><div class="label">Solicitudes Pendientes</div><div class="value" id="st-solicitudes">—</div><div class="change" id="st-solicitudes-c"></div></div>
           <div class="stat-card"><div class="label">Publicaciones</div><div class="value" id="st-publicaciones">—</div></div>
           <div class="stat-card accent-red"><div class="label">Reportes Abiertos</div><div class="value" id="st-reportes">—</div><div class="change" id="st-reportes-c"></div></div>
+          <div class="stat-card"><div class="label">Baneados</div><div class="value" id="st-baneados">—</div></div>
+          <div class="stat-card accent-green"><div class="label">Con Steam</div><div class="value" id="st-steam">—</div></div>
+          <div class="stat-card"><div class="label">Chats</div><div class="value" id="st-chats">—</div></div>
+          <div class="stat-card"><div class="label">Juegos vinculados</div><div class="value" id="st-juegos">—</div></div>
+          <div class="stat-card accent-yellow"><div class="label">Nuevos (7 días)</div><div class="value" id="st-nuevos">—</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
           <div class="card">
@@ -394,6 +403,7 @@ select.filter-sel:focus{border-color:var(--border2);}
                 <svg viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 1 1 3.2 5.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M3 3l.2 2.5L5.7 4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Actualizar
               </button>
+              <button class="btn btn-ghost btn-sm" onclick="exportarUsuariosCsv()">Exportar CSV</button>
             </div>
           </div>
           <div style="padding:10px 16px 0;">
@@ -603,6 +613,38 @@ select.filter-sel:focus{border-color:var(--border2);}
         </div>
       </div>
 
+      <!-- ═══ CHATS ═══ -->
+      <div class="section" id="sec-chats">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Conversaciones</span>
+            <div class="card-actions">
+              <button class="btn btn-blue btn-sm" onclick="loadChats()">Actualizar</button>
+            </div>
+          </div>
+          <div style="padding:10px 16px 0;">
+            <div class="filters-bar">
+              <div class="search-wrap">
+                <input type="text" id="chats-search" placeholder="Buscar por usuario o mensaje…" oninput="filterChats()">
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Participantes</th><th>Último mensaje</th><th>Mensajes</th><th>Actividad</th>
+              </tr></thead>
+              <tbody id="chats-tbody"><tr><td colspan="5"><div class="loader"><div class="spinner"></div><p>Cargando…</p></div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="pag-info" id="chats-info"></span>
+            <button class="pag-btn" onclick="chatsPag(-1)">← Prev</button>
+            <button class="pag-btn" onclick="chatsPag(1)">Sig →</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ═══ CONFIGURACIÓN ═══ -->
       <div class="section" id="sec-configuracion">
         <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:16px;">
@@ -663,6 +705,17 @@ select.filter-sel:focus{border-color:var(--border2);}
   </div><!-- end #main -->
 </div><!-- end #app -->
 
+
+<!-- ─── MODAL USUARIO ─── -->
+<div class="modal-bg" id="usuario-modal">
+  <div class="modal" style="width:520px;max-width:95vw;">
+    <div class="modal-head">
+      <h3 id="usuario-modal-title">Usuario</h3>
+      <button class="btn btn-icon" onclick="closeUsuarioModal()" style="margin-left:auto;">✕</button>
+    </div>
+    <div class="modal-body" id="usuario-modal-body"></div>
+  </div>
+</div>
 <!-- ─── MODAL CONFIRMACIÓN ─── -->
 <div class="modal-bg" id="confirm-modal">
   <div class="modal">
@@ -803,6 +856,7 @@ const sectionTitles = {
   reportes:      ['Reportes', '· incidencias'],
   contenido:     ['Contenido', '· moderación'],
   configuracion: ['Configuración', '· conexión y endpoints'],
+  chats: ['Chats', '· conversaciones'],
 };
 
 function nav(section) {
@@ -823,6 +877,7 @@ function nav(section) {
   if (section === 'solicitudes') loadSolicitudes();
   if (section === 'reportes') loadReportes();
   if (section === 'contenido') loadContenido();
+  if (section === 'chats') loadChats();
   if (section === 'configuracion') loadConfig();
 }
 
