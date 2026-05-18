@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 
-enum NotifType { match, matchAceptado, friend, friendAceptado, reply, achievement, offer, update, comment }
+enum NotifType {
+  match,
+  matchAceptado,
+  friend,
+  friendAceptado,
+  mensaje,
+  reply,
+  achievement,
+  offer,
+  update,
+  comment,
+}
 
 class NotificationModel {
   final String id;
@@ -62,6 +73,9 @@ class NotificationModel {
         return NotifType.friend;
       case 'friend_aceptado':
         return NotifType.friendAceptado;
+      case 'mensaje':
+      case 'chat':
+        return NotifType.mensaje;
       case 'reply':
         return NotifType.reply;
       case 'comment':
@@ -94,6 +108,7 @@ class NotificationModel {
   Color get typeColor => switch (type) {
         NotifType.match || NotifType.matchAceptado => SteamColors.purple,
         NotifType.friend || NotifType.friendAceptado => SteamColors.green,
+        NotifType.mensaje => SteamColors.blue,
         NotifType.reply => SteamColors.blue,
         NotifType.comment => SteamColors.teal,
         NotifType.achievement => SteamColors.yellow,
@@ -104,6 +119,7 @@ class NotificationModel {
   IconData get typeIcon => switch (type) {
         NotifType.match || NotifType.matchAceptado => Icons.handshake_outlined,
         NotifType.friend || NotifType.friendAceptado => Icons.person_add_rounded,
+        NotifType.mensaje => Icons.chat_bubble_outline_rounded,
         NotifType.reply => Icons.reply_rounded,
         NotifType.comment => Icons.comment_rounded,
         NotifType.achievement => Icons.emoji_events_rounded,
@@ -116,6 +132,7 @@ class NotificationModel {
         NotifType.matchAceptado => 'MATCH OK',
         NotifType.friend => 'AMIGO',
         NotifType.friendAceptado => 'AMIGO OK',
+        NotifType.mensaje => 'MENSAJE',
         NotifType.reply => 'RESPUESTA',
         NotifType.comment => 'COMENTARIO',
         NotifType.achievement => 'LOGRO',

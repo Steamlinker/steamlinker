@@ -20,6 +20,14 @@ class AccountSettingsScreen extends StatefulWidget {
 }
 
 class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
+  static const List<String> _paises = [
+    'Colombia',
+    'México',
+    'Argentina',
+    'España',
+    'EE.UU.',
+  ];
+
   final _descripcionController = TextEditingController();
 
   String _pais = 'Colombia';
@@ -44,24 +52,51 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     super.dispose();
   }
 
+  String _paisValido(dynamic raw) {
+    if (raw == null) return 'Colombia';
+    final s = raw.toString().trim();
+    if (s.isEmpty) return 'Colombia';
+    if (_paises.contains(s)) return s;
+    if (s.length <= 3) {
+      final nombre = _codeToPais(s);
+      if (_paises.contains(nombre)) return nombre;
+    }
+    return 'Colombia';
+  }
+
+  void _aplicarDatosPerfil(Map<String, dynamic> perfil, Map<String, dynamic> usuario) {
+    _descripcionController.text = perfil['descrip']?.toString() ?? '';
+    _originalDescripcion = _descripcionController.text;
+    _pais = _paisValido(perfil['pais'] ?? usuario['pais']);
+    _originalPais = _pais;
+    _tieneCambios = false;
+  }
+
   Future<void> _cargarPerfil() async {
     final auth = context.read<AuthProvider>();
     final perfilProv = context.read<PerfilProvider>();
     final usuario = auth.usuario;
     if (usuario == null) return;
 
-    await perfilProv.cargarPerfil(usuario['id']);
+    final userId = usuario['id'] is int
+        ? usuario['id'] as int
+        : int.tryParse(usuario['id']?.toString() ?? '');
+    if (userId == null) return;
+
+    final perfilActual = perfilProv.perfil;
+    if (perfilActual != null && perfilActual['id'] == userId) {
+      if (mounted) {
+        setState(() => _aplicarDatosPerfil(perfilActual, usuario));
+      }
+      return;
+    }
+
+    await perfilProv.cargarPerfil(userId);
+    if (!mounted) return;
     final perfil = perfilProv.perfil;
     if (perfil != null) {
-      _descripcionController.text = perfil['descrip'] ?? '';
-      _originalDescripcion = _descripcionController.text;
-      // Si la BD almacena un código de país corto (ej: 'CO'), convertirlo a nombre para mostrar
-      final rawPais = perfil['pais'] ?? usuario['pais'] ?? 'Colombia';
-      _pais = rawPais is String && rawPais.length <= 3
-          ? _codeToPais(rawPais)
-          : rawPais;
-      _originalPais = _pais;
-      _tieneCambios = false;
+      setState(() => _aplicarDatosPerfil(perfil, usuario));
+    } else {
       setState(() {});
     }
   }
@@ -84,7 +119,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   String _codeToPais(String code) {
-    switch ((code ?? '').toString().toUpperCase()) {
+    switch (code.toUpperCase()) {
       case 'CO':
         return 'Colombia';
       case 'MX':
@@ -96,7 +131,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
       case 'US':
         return 'EE.UU.';
       default:
-        return code;
+        return _paises.contains(code) ? code : 'Colombia';
     }
   }
 
@@ -145,31 +180,13 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
     setState(() => _guardando = false);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final perfilProv = context.watch<PerfilProvider>();
-    final usuario = auth.usuario;
-
-    return Scaffold(
-      backgroundColor: SteamColors.bgDeep,
-      appBar: const SteamAppBar(title: 'CONFIGURACIÓN'),
-      body: usuario == null
-          ? const Center(
-              child: Text(
-                'Debes iniciar sesión para ver esta pantalla',
-                style: TextStyle(color: SteamColors.light),
-              ),
-            )
-          : perfilProv.cargando && perfilProv.perfil == null
-          ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(SteamColors.blue),
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
+  Widget _contenidoConfiguracion({
+    required Map<String, dynamic> usuario,
+    required PerfilProvider perfilProv,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
                 _ProfileCard(
                   usuario: usuario,
                   descripcionController: _descripcionController,
@@ -191,7 +208,69 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
                 const SizedBox(height: 16),
                 const _DangerCard(),
                 const SizedBox(height: 32),
-              ],
+      ],
+    );
+  }
+
+  Widget _cuerpoPrincipal(
+    Map<String, dynamic> usuario,
+    PerfilProvider perfilProv,
+  ) {
+    if (perfilProv.cargando && perfilProv.perfil == null) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation(SteamColors.blue),
+        ),
+      );
+    }
+
+    if (!perfilProv.cargando &&
+        perfilProv.perfil == null &&
+        perfilProv.error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                perfilProv.error ?? 'No se pudo cargar tu perfil',
+                style: const TextStyle(color: SteamColors.light),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              SteamButtonPrimary(
+                label: 'Reintentar',
+                icon: Icons.refresh,
+                onTap: (_) => _cargarPerfil(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return _contenidoConfiguracion(usuario: usuario, perfilProv: perfilProv);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final perfilProv = context.watch<PerfilProvider>();
+    final usuario = auth.usuario;
+
+    return Scaffold(
+      backgroundColor: SteamColors.bgDeep,
+      appBar: const SteamAppBar(title: 'CONFIGURACIÓN'),
+      body: usuario == null
+          ? const Center(
+              child: Text(
+                'Debes iniciar sesión para ver esta pantalla',
+                style: TextStyle(color: SteamColors.light),
+              ),
+            )
+          : SafeArea(
+              child: _cuerpoPrincipal(usuario, perfilProv),
             ),
     );
   }
@@ -265,13 +344,7 @@ class _ProfileCard extends StatelessWidget {
           DropField(
             label: 'País',
             value: pais,
-            items: const [
-              'Colombia',
-              'México',
-              'Argentina',
-              'España',
-              'EE.UU.',
-            ],
+            items: _AccountSettingsScreenState._paises,
             onChanged: onPaisChanged,
           ),
           const Divider(color: SteamColors.border, height: 1),

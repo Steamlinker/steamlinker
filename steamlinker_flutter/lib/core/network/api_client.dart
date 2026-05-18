@@ -19,6 +19,7 @@ class ApiClient {
   );
 
   static void init() {
+    _dio.options.baseUrl = AppConfig.apiBaseUrl;
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {

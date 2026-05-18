@@ -7,8 +7,11 @@ import '../../../widgets/steam_card.dart';
 import '../../../widgets/steam_toast.dart';
 import '../../../widgets/steam_buttons.dart';
 import '../../../core/auth/session_actions.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/auth/user_role.dart';
 import '../../account/screens/account_settings_screen.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../home/widgets/admin_panel_section.dart';
 import '../../busqueda/screens/busqueda_screen.dart';
 import '../providers/perfil_provider.dart';
 
@@ -369,7 +372,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
   @override
   Widget build(BuildContext context) {
     final perfilProv = context.watch<PerfilProvider>();
+    final auth = context.watch<AuthProvider>();
     final perfil = perfilProv.perfil;
+    final esAdmin = esUsuarioAdmin(auth.usuario) || esUsuarioAdmin(perfil);
 
     return Scaffold(
       backgroundColor: SteamColors.bgDeep,
@@ -437,12 +442,11 @@ class _PerfilScreenState extends State<PerfilScreen> {
                               child: SteamButtonOutline(
                                 label: 'Configuración',
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const AccountSettingsScreen(),
-                                    ),
-                                  );
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (context.mounted) {
+                                      context.push('/configuracion');
+                                    }
+                                  });
                                 },
                               ),
                             ),
@@ -464,6 +468,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       ],
                     ),
                   ),
+                  if (esAdmin) ...[
+                    const SizedBox(height: 16),
+                    const AdminPanelSection(),
+                  ],
                   const SizedBox(height: 16),
                   SteamCard(
                     icon: Icons.verified_user,

@@ -1,8 +1,23 @@
 import 'package:dio/dio.dart';
+import '../config/app_config.dart';
 
 /// Mensajes de error de red/API unificados para toda la app.
 class ApiErrorMapper {
   ApiErrorMapper._();
+
+  static bool _isConnectionRefused(DioException e) {
+    final parts = [
+      e.message,
+      e.error?.toString(),
+      e.toString(),
+    ];
+    final text = parts.whereType<String>().join(' ').toLowerCase();
+    return text.contains('connection refused') ||
+        text.contains('failed host lookup') ||
+        text.contains('network is unreachable') ||
+        text.contains('connection failed') ||
+        text.contains('socketexception');
+  }
 
   static String resolve(DioException e, {required String fallback}) {
     final data = e.response?.data;
@@ -11,13 +26,16 @@ class ApiErrorMapper {
       if (msg.isNotEmpty) return msg;
     }
 
+    if (_isConnectionRefused(e) ||
+        e.type == DioExceptionType.connectionError) {
+      return AppConfig.connectionHelpMessage;
+    }
+
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
         return 'La conexión tardó demasiado. Comprueba tu internet e inténtalo de nuevo.';
-      case DioExceptionType.connectionError:
-        return 'No se pudo conectar al servidor. Verifica tu red y que el backend esté en marcha.';
       case DioExceptionType.badCertificate:
         return 'Conexión no segura con el servidor (certificado inválido).';
       case DioExceptionType.cancel:
@@ -31,7 +49,14 @@ class ApiErrorMapper {
           return 'Error del servidor. Intenta más tarde.';
         }
         break;
+      case DioExceptionType.connectionError:
+        return AppConfig.connectionHelpMessage;
       case DioExceptionType.unknown:
+        if (_isConnectionRefused(e)) {
+          return AppConfig.connectionHelpMessage;
+        }
+        break;
+      default:
         break;
     }
 

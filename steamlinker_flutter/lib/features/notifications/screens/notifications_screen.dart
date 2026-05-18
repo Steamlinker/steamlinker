@@ -4,7 +4,9 @@ import '../../../models/notification_model.dart';
 import '../../../theme/colors.dart';
 import '../../../widgets/notification_tile.dart';
 import '../../../widgets/steam_app_bar.dart';
+import '../../../core/navigation/app_navigator.dart';
 import '../../amistad/screens/amistad_screen.dart';
+import '../../chat/screens/chat_conversation_screen.dart';
 import '../../matches/screens/matches_screen.dart';
 import '../providers/notificaciones_provider.dart';
 
@@ -68,14 +70,25 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   void _navegarDesdeNotif(NotificationModel n) {
     switch (n.refTipo) {
       case 'match':
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const MatchesScreen()),
-        );
+        pushAppScreen(context, const MatchesScreen());
         break;
       case 'amistad':
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const AmistadScreen()),
-        );
+        pushAppScreen(context, const AmistadScreen());
+        break;
+      case 'chat':
+        if (n.refId != null) {
+          final nombre = n.title.replaceFirst(
+            RegExp(r'^Nuevo mensaje de\s*', caseSensitive: false),
+            '',
+          );
+          pushAppScreen(
+            context,
+            ChatConversationScreen(
+              chatId: n.refId!,
+              otroNombre: nombre.isNotEmpty ? nombre : 'Chat',
+            ),
+          );
+        }
         break;
       default:
         break;
@@ -251,7 +264,7 @@ class _EmptyState extends StatelessWidget {
             Text(
               isInteresting
                   ? 'Usa el menú ⋮ para marcar lo que te interesa'
-                  : 'Las alertas de match y amistad aparecerán aquí',
+                  : 'Te avisaremos de mensajes, matches y solicitudes de amistad',
               style: const TextStyle(color: SteamColors.textSec, fontSize: 12.5),
               textAlign: TextAlign.center,
             ),

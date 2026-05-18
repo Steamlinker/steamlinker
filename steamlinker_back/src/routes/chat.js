@@ -4,6 +4,7 @@
 const express = require('express');
 const pool = require('../db');
 const { verificarToken } = require('./auth');
+const { crearNotificacion, usernameDe } = require('../services/notificacionesService');
 
 const router = express.Router();
 
@@ -110,6 +111,32 @@ router.post('/:id/mensaje', verificarToken, async (req, res) => {
              WHERE m.id_mensaje = $1`,
             [insertado.rows[0].id_mensaje]
         );
+
+        const filaChat = chat.rows[0];
+        const emisorId = req.usuario.id;
+        const receptorId =
+            filaChat.id_participante1 === emisorId
+                ? filaChat.id_participante2
+                : filaChat.id_participante1;
+
+        if (receptorId && receptorId !== emisorId) {
+            const emisorNombre =
+                conEmisor.rows[0].emisor_username ||
+                (await usernameDe(emisorId));
+            const preview =
+                mensaje.length > 100
+                    ? `${mensaje.slice(0, 97)}...`
+                    : mensaje;
+            await crearNotificacion({
+                idUsuario: receptorId,
+                tipo: 'mensaje',
+                titulo: `Nuevo mensaje de ${emisorNombre}`,
+                cuerpo: preview,
+                refTipo: 'chat',
+                refId: parseInt(req.params.id, 10),
+                avatar: emisorNombre.charAt(0).toUpperCase(),
+            });
+        }
 
         res.status(201).json(conEmisor.rows[0]);
 

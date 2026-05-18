@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 
-class DropField extends StatefulWidget {
+/// Selector simple (estable en Flutter web; evita FormField + initialValue).
+class DropField extends StatelessWidget {
   final String label;
   final String value;
   final List<String> items;
@@ -16,25 +17,18 @@ class DropField extends StatefulWidget {
   });
 
   @override
-  State<DropField> createState() => _DropFieldState();
-}
-
-class _DropFieldState extends State<DropField> {
-  late String _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.value;
-  }
-
-  @override
   Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final selected = items.contains(value) ? value : items.first;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.label.toUpperCase(),
+          label.toUpperCase(),
           style: const TextStyle(
             color: SteamColors.textSec,
             fontSize: 10,
@@ -43,42 +37,42 @@ class _DropFieldState extends State<DropField> {
           ),
         ),
         const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          initialValue: _selected,
-          isExpanded: true,
-          dropdownColor: SteamColors.bgPanel,
-          icon: const Icon(Icons.expand_more, color: SteamColors.muted, size: 18),
-          style: const TextStyle(color: SteamColors.light, fontSize: 13),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: SteamColors.bgInput,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: SteamColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide:
-                  const BorderSide(color: SteamColors.blue, width: 1.5),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: SteamColors.bgInput,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: SteamColors.border),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: selected,
+              isExpanded: true,
+              dropdownColor: SteamColors.bgPanel,
+              icon: const Icon(Icons.expand_more, color: SteamColors.muted, size: 18),
+              style: const TextStyle(color: SteamColors.light, fontSize: 13),
+              items: items
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(
+                        e,
+                        style: const TextStyle(
+                          color: SteamColors.light,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged == null
+                  ? null
+                  : (v) {
+                      if (v != null) onChanged!(v);
+                    },
             ),
           ),
-          items: widget.items
-              .map((e) => DropdownMenuItem(
-                    value: e,
-                    child: Text(
-                      e,
-                      style: const TextStyle(
-                          color: SteamColors.light, fontSize: 13),
-                    ),
-                  ))
-              .toList(),
-          onChanged: (v) {
-            if (v == null) return;
-            setState(() => _selected = v);
-            widget.onChanged?.call(v);
-          },
         ),
         const SizedBox(height: 12),
       ],

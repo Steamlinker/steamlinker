@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../theme/colors.dart';
 import '../../../widgets/steam_app_bar.dart';
 import '../../../core/auth/session_actions.dart';
+import '../../../core/auth/user_role.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../busqueda/screens/busqueda_screen.dart';
 import '../../chat/screens/chat_screen.dart';
@@ -162,7 +163,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       _InfoRow(
                         icon: Icons.account_box_outlined,
                         label: 'Tipo de Cuenta',
-                        value: usuario['tipo'] ?? 'usuario',
+                        value: etiquetaTipoCuenta(usuario),
+                        valueColor: esUsuarioAdmin(usuario)
+                            ? SteamColors.orange
+                            : SteamColors.light,
                       ),
                       const Divider(color: SteamColors.border, height: 20),
                       _InfoRow(

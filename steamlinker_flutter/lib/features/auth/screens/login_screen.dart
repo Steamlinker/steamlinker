@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/login_dev_server_chip.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -102,9 +103,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
+      body: Stack(
+        children: [
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 56),
+              child: Container(
             width: 420,
             padding: const EdgeInsets.all(32),
             child: Column(
@@ -225,7 +229,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               Expanded(
                                 child: Text(
                                   auth.error!,
-                                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                    height: 1.4,
+                                  ),
                                 ),
                               ),
                             ],
@@ -283,7 +291,14 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
-        ),
+            ),
+          ),
+          const Positioned(
+            right: 16,
+            bottom: 16,
+            child: SafeArea(child: LoginDevServerChip()),
+          ),
+        ],
       ),
     );
   }
